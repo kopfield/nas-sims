@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Newton's Third Law Simulation</title>
+  <style>
+    body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+    #controls { margin: 20px; }
+    canvas { border: 1px solid #ccc; display: block; margin: 0 auto; }
+    #info { margin-top: 10px; font-style: italic; }
+    button { margin: 0 5px; }
+  </style>
+</head>
+<body>
+  <h2>Newton's Third Law Simulation</h2>
+  <p>For every action, there is an equal and opposite reaction.</p>
+  <div id="controls">
+    <label>Force Magnitude: <span id="forceValue">5</span></label><br>
+    <input type="range" id="forceSlider" min="1" max="20" value="5"><br><br>
+    <button id="startButton">Start Simulation</button>
+    <button id="pauseButton" disabled>Pause</button>
+  </div>
+
+  <canvas id="simCanvas" width="800" height="400"></canvas>
+  <p id="info">Adjust the force and click Start to see blocks collide.</p>
+
+  <script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const forceSlider = document.getElementById('forceSlider');
+    const forceValueDisplay = document.getElementById('forceValue');
+    const startButton = document.getElementById('startButton');
+    const pauseButton = document.getElementById('pauseButton');
+    const info = document.getElementById('info');
+
+    class ObjectBlock {
+      constructor(x, color) {
+        this.startX = x;
+        this.x = x;
+        this.y = 200;
+        this.width = 50;
+        this.height = 50;
+        this.color = color;
+        this.speed = 0;
+      }
+      applyForce(force, direction) { this.speed = (force / 5) * direction; }
+      update() { this.x += this.speed; }
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+      }
+    }
+
+    let objectA, objectB;
+    let animId;
+    let collided = false;
+    let paused = false;
+
+    function resetSimulation() {
+      cancelAnimationFrame(animId);
+      paused = false;
+      pauseButton.disabled = false;
+      pauseButton.textContent = 'Pause';
+      collided = false;
+      const force = parseInt(forceSlider.value);
+      objectA = new ObjectBlock(150, 'red');
+      objectB = new ObjectBlock(600, 'blue');
+      objectA.applyForce(force, 1);
+      objectB.applyForce(force, -1);
+      info.textContent = 'Blocks move toward each other.';
+      animate();
+    }
+
+    function drawArrow(x, y, length, direction) {
+      const startX = x;
+      const startY = y;
+      const endX = x + length * direction;
+      const endY = y;
+      ctx.beginPath();
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 2;
+      ctx.moveTo(startX, startY);
+      ctx.lineTo(endX, endY);
+      ctx.stroke();
+      const headLen = 10;
+      const angle = Math.PI / 6;
+      const leftX = endX - headLen * Math.cos(angle) * direction;
+      const leftY = endY - headLen * Math.sin(angle);
+      const rightX = endX - headLen * Math.cos(angle) * direction;
+      const rightY = endY + headLen * Math.sin(angle);
+      ctx.beginPath();
+      ctx.fillStyle = 'black';
+      ctx.moveTo(endX, endY);
+      ctx.lineTo(leftX, leftY);
+      ctx.lineTo(rightX, rightY);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      objectA.update();
+      objectB.update();
+      objectA.draw();
+      objectB.draw();
+
+      const force = parseInt(forceSlider.value);
+      if (!collided && objectA.x + objectA.width >= objectB.x) {
+        collided = true;
+        objectA.applyForce(force, -1);
+        objectB.applyForce(force, 1);
+        info.textContent = 'Collision! Now showing forces:';
+      }
+
+      if (collided) {
+        const arrowLen = 40;
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'black';
+        drawArrow(objectB.x + objectB.width / 2, objectB.y - 20, arrowLen, 1);
+        ctx.fillText('Force by Red Box on Blue Box', objectB.x + objectB.width / 2 + 15, objectB.y - 25);
+        drawArrow(objectA.x + objectA.width / 2, objectA.y - 20, arrowLen, -1);
+        ctx.fillText('Force by Blue Box on Red Box', objectA.x - 200, objectA.y - 25);
+      }
+
+      if (!paused) {
+        animId = requestAnimationFrame(animate);
+      }
+    }
+
+    forceSlider.addEventListener('input', () => {
+      forceValueDisplay.textContent = forceSlider.value;
+    });
+    startButton.addEventListener('click', resetSimulation);
+    pauseButton.addEventListener('click', () => {
+      paused = !paused;
+      if (paused) {
+        cancelAnimationFrame(animId);
+        pauseButton.textContent = 'Resume';
+        info.textContent = 'Simulation paused.';
+      } else {
+        pauseButton.textContent = 'Pause';
+        info.textContent = collided ? 'Collision! Now showing forces:' : 'Blocks move toward each other.';
+        animate();
+      }
+    });
+
+    resetSimulation();
+  </script>
+</body>
+</html>
