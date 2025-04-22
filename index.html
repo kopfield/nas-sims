@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NAS Sims - Physics Simulations</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2c3e50;
+            --accent-color: #e74c3c;
+            --light-bg: #ecf0f1;
+            --card-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+            background-color: var(--light-bg);
+            color: #333;
+        }
+        
+        header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            text-align: center;
+            padding: 2rem 1rem;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .header-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.1;
+            z-index: 1;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'%3E%3Cpath fill='white' d='M0,0 L100,0 L100,100 C75,70 25,70 0,100 Z'%3E%3C/path%3E%3C/svg%3E");
+            background-size: cover;
+        }
+        
+        h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            margin-top: 0.5rem;
+            opacity: 0.9;
+        }
+        
+        main {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+        }
+        
+        .topic-section {
+            margin-bottom: 3rem;
+            background-color: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+        }
+        
+        .topic-header {
+            background-color: var(--secondary-color);
+            color: white;
+            padding: 1rem 1.5rem;
+            font-size: 1.3rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .topic-header:hover {
+            background-color: #34495e;
+        }
+        
+        .topic-content {
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .topic-content.active {
+            max-height: 2000px;
+            padding: 1rem;
+            transition: max-height 0.5s ease-in;
+        }
+        
+        .sim-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .sim-card {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--card-shadow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .sim-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.15);
+        }
+        
+        .sim-icon {
+            height: 80px;
+            background-color: rgba(52, 152, 219, 0.1);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .sim-icon i {
+            font-size: 32px;
+            color: var(--primary-color);
+        }
+        
+        .sim-details {
+            padding: 1rem;
+        }
+        
+        .sim-title {
+            font-weight: 600;
+            font-size: 1.1rem;
+            margin-top: 0;
+            margin-bottom: 0.5rem;
+            color: var(--secondary-color);
+        }
+        
+        .sim-desc {
+            font-size: 0.9rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+        
+        .sim-btn {
+            display: inline-block;
+            background-color: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+        
+        .sim-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .arrow {
+            border: solid white;
+            border-width: 0 3px 3px 0;
+            display: inline-block;
+            padding: 3px;
+            transform: rotate(45deg);
+            transition: transform 0.3s;
+        }
+        
+        .topic-header.active .arrow {
+            transform: rotate(-135deg);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 2rem;
+            background-color: var(--secondary-color);
+            color: white;
+            margin-top: 3rem;
+        }
+        
+        .search-container {
+            margin: 2rem 0;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .search-box {
+            width: 100%;
+            max-width: 600px;
+            padding: 0.8rem 1rem;
+            border: 2px solid #ddd;
+            border-radius: 30px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        
+        .search-box:focus {
+            border-color: var(--primary-color);
+        }
+        
+        .add-sim-card {
+            background-color: rgba(52, 152, 219, 0.1);
+            border: 2px dashed var(--primary-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            padding: 20px;
+        }
+        
+        .add-sim-card:hover {
+            background-color: rgba(52, 152, 219, 0.2);
+            transform: translateY(-5px);
+        }
+        
+        .add-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .sim-grid {
+                grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+            }
+            
+            main {
+                padding: 0 1rem;
+            }
+        }
+        
+        /* Font Awesome style replacement */
+        .fa {
+            display: inline-block;
+            font: normal normal normal 14px/1 sans-serif;
+            font-size: inherit;
+            text-rendering: auto;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        
+        .fa-ruler:before {
+            content: "📏";
+        }
+        
+        .fa-balance-scale:before {
+            content: "⚖️";
+        }
+        
+        .fa-thermometer:before {
+            content: "🌡️";
+        }
+        
+        .fa-fire:before {
+            content: "🔥";
+        }
+        
+        .fa-tint:before {
+            content: "💧";
+        }
+        
+        .fa-wave-square:before {
+            content: "〰️";
+        }
+        
+        .fa-water:before {
+            content: "🌊";
+        }
+        
+        .fa-volume-up:before {
+            content: "🔊";
+        }
+        
+        .fa-lightbulb:before {
+            content: "💡";
+        }
+        
+        .fa-glasses:before {
+            content: "👓";
+        }
+        
+        .fa-radiation:before {
+            content: "☢️";
+        }
+        
+        .fa-bolt:before {
+            content: "⚡";
+        }
+        
+        .fa-magnet:before {
+            content: "🧲";
+        }
+        
+        .fa-compass:before {
+            content: "🧭";
+        }
+        
+        .fa-cogs:before {
+            content: "⚙️";
+        }
+        
+        .fa-atom:before {
+            content: "⚛️";
+        }
+        
+        .fa-shield-alt:before {
+            content: "🛡️";
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="header-bg"></div>
+        <div class="header-content">
+            <h1>NAS Sims</h1>
+            <div class="subtitle">Interactive Physics Simulations for O Level Physics 6091</div>
+        </div>
+    </header>
+    
+    <main>
+        <div class="search-container">
+            <input type="text" class="search-box" id="simSearch" placeholder="Search simulations by topic or keyword...">
+        </div>
+        
+        <!-- Measurements -->
+        <div class="topic-section">
+            <div class="topic-header">
+                <span>1. Measurements</span>
+                <i class="arrow"></i>
+            </div>
+            <div class="topic-content">
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-ruler"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Vernier Caliper Simulator</h3>
+                            <p class="sim-desc">Practice reading measurements with a virtual Vernier caliper. Measure objects with precision to 0.1mm.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-balance-scale"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Micrometer Screw Gauge</h3>
+                            <p class="sim-desc">Learn to use a micrometer with this interactive simulation. Practice taking measurements with high precision.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card add-sim-card">
+                        <div class="add-icon">+</div>
+                        <h3 class="sim-title">Add New Simulation</h3>
+                        <p class="sim-desc">Click to add a new simulation to this topic</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Newtonian Mechanics -->
+        <div class="topic-section">
+            <div class="topic-header">
+                <span>2. Newtonian Mechanics</span>
+                <i class="arrow"></i>
+            </div>
+            <div class="topic-content">
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-balance-scale"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Forces and Motion</h3>
+                            <p class="sim-desc">Visualize Newton's Laws with interactive objects. Apply forces and observe acceleration.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card add-sim-card">
+                        <div class="add-icon">+</div>
+                        <h3 class="sim-title">Add New Simulation</h3>
+                        <p class="sim-desc">Click to add a new simulation to this topic</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Thermal Physics -->
+        <div class="topic-section">
+            <div class="topic-header">
+                <span>3. Thermal Physics</span>
+                <i class="arrow"></i>
+            </div>
+            <div class="topic-content">
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-thermometer"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Kinetic Theory of Matter</h3>
+                            <p class="sim-desc">Visualize particle behavior in different states of matter and how temperature affects particle movement.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-fire"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Heat Transfer Methods</h3>
+                            <p class="sim-desc">Interactive demonstration of conduction, convection, and radiation with real-world examples.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-tint"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Specific Heat Capacity</h3>
+                            <p class="sim-desc">Experiment with heating different materials and observe how specific heat capacity affects temperature change.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card add-sim-card">
+                        <div class="add-icon">+</div>
+                        <h3 class="sim-title">Add New Simulation</h3>
+                        <p class="sim-desc">Click to add a new simulation to this topic</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Waves -->
+        <div class="topic-section">
+            <div class="topic-header">
+                <span>4. Waves</span>
+                <i class="arrow"></i>
+            </div>
+            <div class="topic-content">
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-wave-square"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Wave Properties Explorer</h3>
+                            <p class="sim-desc">Visualize amplitude, wavelength, frequency, and wave speed with interactive wave simulations.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-water"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Wave Phenomena</h3>
+                            <p class="sim-desc">Explore reflection, refraction, diffraction, and interference of waves with interactive examples.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-volume-up"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Sound Waves</h3>
+                            <p class="sim-desc">Investigate sound wave properties, resonance, and the Doppler effect with interactive audio examples.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card add-sim-card">
+                        <div class="add-icon">+</div>
+                        <h3 class="sim-title">Add New Simulation</h3>
+                        <p class="sim-desc">Click to add a new simulation to this topic</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Light -->
+        <div class="topic-section">
+            <div class="topic-header">
+                <span>5. Light</span>
+                <i class="arrow"></i>
+            </div>
+            <div class="topic-content">
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-lightbulb"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Reflection and Refraction</h3>
+                            <p class="sim-desc">Explore how light behaves when it encounters different materials and surfaces.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-glasses"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Lenses and Image Formation</h3>
+                            <p class="sim-desc">Investigate convex and concave lenses and see how they form images at different object distances.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-radiation"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Electromagnetic Spectrum</h3>
+                            <p class="sim-desc">Explore the different regions of the electromagnetic spectrum and their applications.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card add-sim-card">
+                        <div class="add-icon">+</div>
+                        <h3 class="sim-title">Add New Simulation</h3>
+                        <p class="sim-desc">Click to add a new simulation to this topic</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Electricity and Magnetism -->
+        <div class="topic-section">
+            <div class="topic-header">
+                <span>6. Electricity and Magnetism</span>
+                <i class="arrow"></i>
+            </div>
+            <div class="topic-content">
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-bolt"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Circuit Builder</h3>
+                            <p class="sim-desc">Build electrical circuits with various components and measure voltage, current, and resistance.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-magnet"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Electromagnetic Induction</h3>
+                            <p class="sim-desc">Explore how moving magnets can generate electricity and investigate Faraday's law of induction.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-compass"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Magnetic Field Visualizer</h3>
+                            <p class="sim-desc">Visualize magnetic fields around different configurations of magnets and current-carrying conductors.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-cogs"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">DC Motors and Generators</h3>
+                            <p class="sim-desc">Understand the principles behind DC motors and generators with interactive animations.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card add-sim-card">
+                        <div class="add-icon">+</div>
+                        <h3 class="sim-title">Add New Simulation</h3>
+                        <p class="sim-desc">Click to add a new simulation to this topic</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Radioactivity and Nuclear Physics -->
+        <div class="topic-section">
+            <div class="topic-header">
+                <span>7. Radioactivity and Nuclear Physics</span>
+                <i class="arrow"></i>
+            </div>
+            <div class="topic-content">
+                <div class="sim-grid">
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-atom"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Radioactive Decay Simulator</h3>
+                            <p class="sim-desc">Visualize alpha, beta, and gamma decay processes and track the half-life of radioactive samples.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-radiation"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Nuclear Fission and Fusion</h3>
+                            <p class="sim-desc">Explore the processes of nuclear fission and fusion and their applications in energy production.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card">
+                        <div class="sim-icon">
+                            <i class="fa fa-shield-alt"></i>
+                        </div>
+                        <div class="sim-details">
+                            <h3 class="sim-title">Radiation Protection</h3>
+                            <p class="sim-desc">Learn about different types of radiation and effectiveness of various shielding materials.</p>
+                            <a href="#" class="sim-btn">Launch Simulation</a>
+                        </div>
+                    </div>
+                    <div class="sim-card add-sim-card">
+                        <div class="add-icon">+</div>
+                        <h3 class="sim-title">Add New Simulation</h3>
+                        <p class="sim-desc">Click to add a new simulation to this topic</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    
+    <footer>
+        <p>NAS Sims - Physics Interactive Simulations</p>
+        <p>Aligned to GCE O Level Physics 6091 Syllabus</p>
+        <p>&copy; 2025 All Rights Reserved</p>
+    </footer>
+    
+    <script>
+        // Toggle topic sections
+        document.querySelectorAll('.topic-header').forEach(header => {
+            header.addEventListener('click', () => {
+                const content = header.nextElementSibling;
+                header.classList.toggle('active');
+                content.classList.toggle('active');
+            });
+        });
+        
+        // Open first section by default
+        document.querySelector('.topic-header').click();
+        
+        // Search functionality
+        const searchBox = document.getElementById('simSearch');
+        searchBox.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            
+            // If search is empty, show all sections
+            if (searchTerm === '') {
+                document.querySelectorAll('.topic-section').forEach(section => {
+                    section.style.display = 'block';
+                });
+                document.querySelectorAll('.sim-card').forEach(card => {
+                    card.style.display = 'block';
+                });
+                return;
+            }
+            
+            document.querySelectorAll('.topic-section').forEach(section => {
+                const topicTitle = section.querySelector('.topic-header span').textContent.toLowerCase();
+                const cards = section.querySelectorAll('.sim-card:not(.add-sim-card)');
+                
+                // Check if any cards in this section match the search
+                let hasMatch = topicTitle.includes(searchTerm);
+                
+                cards.forEach(card => {
+                    const cardTitle = card.querySelector('.sim-title').textContent.toLowerCase();
+                    const cardDesc = card.querySelector('.sim-desc').textContent.toLowerCase();
+                    
+                    const cardMatches = cardTitle.includes(searchTerm) || cardDesc.includes(searchTerm);
+                    
+                    // Show/hide individual cards
+                    card.style.display = cardMatches ? 'block' : 'none';
+                    
+                    // If any card matches, we'll show this section
+                    if (cardMatches) hasMatch = true;
+                });
+                
+                // Always show the "Add New Simulation" card
+                section.querySelectorAll('.add-sim-card').forEach(addCard => {
+                    addCard.style.display = 'block';
+                });
+                
+                // Show/hide the entire section
+                section.style.display = hasMatch ? 'block' : 'none';
+                
+                // Expand section if it matches the search
+                if (hasMatch && !section.querySelector('.topic-content').classList.contains('active')) {
+                    section.querySelector('.topic-header').classList.add('active');
+                    section.querySelector('.topic-content').classList.add('active');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
