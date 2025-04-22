@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pentagon Lamina Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f5f5f5;
+        }
+        .simulation-container {
+            position: relative;
+            width: 580px;
+            height: 460px;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        canvas {
+            display: block;
+            background-color: #fff;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .sim-btn {
+            display: inline-block;
+            background-color: #3498db;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background-color 0.2s;
+        }
+        
+        .sim-btn:hover {
+            background-color: #2980b9;
+        }
+        
+        .home-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 3;
+        }
+        .instructions {
+            margin: 20px;
+            padding: 15px;
+            background-color: #e9f7ef;
+            border-radius: 5px;
+            max-width: 580px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Pentagon Lamina Simulation</h1>
+    <a href="../index.html" class="sim-btn home-button">Back to Homepage</a>
+    
+    <div class="instructions">
+        <p>This simulation demonstrates how the weight acting through the center of gravity (C) affects the swing of a pentagon lamina pivoted at point P.</p>
+        <p>The weight of the lamina is 2.0 N, and the distance PC is 0.50 m.</p>
+        <p><strong>Instructions:</strong> Click and drag the pentagon to displace it, then release to observe how it swings under gravity until it reaches its rest position.</p>
+    </div>
+    
+    <div class="simulation-container">
+        <canvas id="simulationCanvas" width="580" height="460"></canvas>
+    </div>
+    
+    <div class="controls">
+        <button id="resetBtn">Reset Simulation</button>
+        <button id="pauseBtn">Pause</button>
+    </div>
+    
+    <script>
+        // Pentagon Lamina Simulation - Final Version
+        // This simulation shows how the weight acting through the CG affects the swing direction
+
+        // Get the canvas and context
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Constants
+        const GRAVITY = 9.81; // m/s²
+        const WEIGHT = 2.0; // N
+        const MASS = WEIGHT / GRAVITY; // kg
+        const DAMPING = 0.995; // Damping factor to gradually slow down the motion
+        const ANGULAR_DAMPING = 0.995; // Specific damping for angular velocity
+        const TIME_STEP = 1/60; // seconds
+        const SCALE = 230; // Pixels per meter (adjusted for smaller canvas)
+        const REST_THRESHOLD = 0.0001; // Threshold to consider the lamina at rest
+
+        // Pentagon properties
+        const PC_DISTANCE = 0.50; // m, distance from pivot to center of gravity
+        const PENTAGON_RADIUS = 0.4; // m, approximate radius of the pentagon
+
+        // Colors
+        const PENTAGON_COLOR = "#6495ED"; // Pentagon fill color
+        const PIVOT_COLOR = "#000000"; // Pivot point color
+        const CG_COLOR = "#FF0000"; // Center of gravity color
+        const LINE_OF_ACTION_COLOR = "#FF0000"; // Line of action color
+        const MOMENT_COLOR = "#00AA00"; // Moment direction color
+        const PERP_DISTANCE_COLOR = "#0000FF"; // Perpendicular distance color
+
+        // Simulation state
+        let angle = Math.PI / 6; // Initial angle (30 degrees)
+        let angularVelocity = 0; // Initial angular velocity
+        let isDragging = false;
+        let isAtRest = false;
+        let isPaused = false;
+        let dragStartAngle = 0;
+        let lastMousePosition = { x: 0, y: 0 };
+
+        // Canvas center coordinates
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2 - 50; // Slightly above center
+
+        // Calculate pentagon vertices (regular pentagon)
+        function calculatePentagonVertices(angle) {
+            const vertices = [];
+            const numVertices = 5;
+            
+            // Calculate the position of point C (center of gravity)
+            const cgX = centerX + Math.sin(angle) * PC_DISTANCE * SCALE;
+            const cgY = centerY + Math.cos(angle) * PC_DISTANCE * SCALE;
+            
+            // Calculate pentagon vertices around the center of gravity
+            for (let i = 0; i < numVertices; i++) {
+                const vertexAngle = angle + (2 * Math.PI * i / numVertices);
+                const x = cgX + Math.sin(vertexAngle) * PENTAGON_RADIUS * SCALE;
+                const y = cgY + Math.cos(vertexAngle) * PENTAGON_RADIUS * SCALE;
+                vertices.push({ x, y });
+            }
+            
+            // Find the vertex closest to the pivot position to place P on the lamina
+            let closestVertex = null;
+            let minDistance = Infinity;
+            
+            for (const vertex of vertices) {
+                const distance = Math.sqrt((vertex.x - centerX) ** 2 + (vertex.y - centerY) ** 2);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    closestVertex = vertex;
+                }
+            }
+            
+            // Use the closest vertex as the pivot point
+            const pivotX = centerX;
+            const pivotY = centerY;
+            
+            return {
+                vertices,
+                cg: { x: cgX, y: cgY },
+                pivot: { x: pivotX, y: pivotY }
+            };
+        }
+
+        // Draw the pentagon lamina
+        function drawPentagon(pentagonData) {
+            const { vertices, cg, pivot } = pentagonData;
+            
+            // Draw the pentagon
+            ctx.beginPath();
+            ctx.moveTo(vertices[0].x, vertices[0].y);
+            for (let i = 1; i < vertices.length; i++) {
+                ctx.lineTo(vertices[i].x, vertices[i].y);
+            }
+            ctx.closePath();
+            ctx.fillStyle = PENTAGON_COLOR;
+            ctx.fill();
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw the pivot point (P) - now shown as part of the lamina
+            ctx.beginPath();
+            ctx.arc(pivot.x, pivot.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = PIVOT_COLOR;
+            ctx.fill();
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Draw the center of gravity (C)
+            ctx.beginPath();
+            ctx.arc(cg.x, cg.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = CG_COLOR;
+            ctx.fill();
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Draw the line connecting pivot to CG
+            ctx.beginPath();
+            ctx.moveTo(pivot.x, pivot.y);
+            ctx.lineTo(cg.x, cg.y);
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 3]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            
+            // Calculate perpendicular distance from line of action to pivot
+            // The line of action is vertical through CG, so the perpendicular distance
+            // is the horizontal distance from pivot to the line of action
+            const perpDistance = Math.abs(pivot.x - cg.x);
+            
+            // Draw the line of action of weight (vertical line through CG)
+            ctx.beginPath();
+            ctx.moveTo(cg.x, cg.y);
+            ctx.lineTo(cg.x, cg.y + 200); // Extend line downward
+            ctx.strokeStyle = LINE_OF_ACTION_COLOR;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Only show moment and perpendicular distance if not at rest and angle is significant
+            if (!isAtRest && Math.abs(angle) > 0.01) {
+                // Draw perpendicular distance line (horizontal from pivot to line of action)
+                ctx.beginPath();
+                ctx.moveTo(pivot.x, pivot.y);
+                ctx.lineTo(cg.x, pivot.y);
+                ctx.strokeStyle = PERP_DISTANCE_COLOR;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Extend the line of action with dotted line to the perpendicular distance
+                ctx.beginPath();
+                ctx.moveTo(cg.x, cg.y);
+                ctx.lineTo(cg.x, pivot.y);
+                ctx.setLineDash([5, 3]);
+                ctx.strokeStyle = LINE_OF_ACTION_COLOR;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.setLineDash([]);
+                
+                // Draw perpendicular distance text
+                ctx.font = "14px Arial";
+                ctx.fillStyle = PERP_DISTANCE_COLOR;
+                ctx.fillText(`d = ${(perpDistance / SCALE).toFixed(2)} m`, 
+                            (pivot.x + cg.x) / 2, 
+                            pivot.y - 10);
+                
+                // Draw circular arrow for moment (clockwise or counterclockwise based on angle)
+                const momentRadius = 40;
+                const startAngle = angle > 0 ? Math.PI : 0;
+                const endAngle = angle > 0 ? 0 : Math.PI;
+                
+                // Draw circular arc
+                ctx.beginPath();
+                ctx.arc(pivot.x, pivot.y, momentRadius, startAngle, endAngle, angle < 0);
+                ctx.strokeStyle = MOMENT_COLOR;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw arrowhead on the circular arc
+                const arrowAngle = angle > 0 ? 0 : Math.PI;
+                const arrowX = pivot.x + Math.cos(arrowAngle) * momentRadius;
+                const arrowY = pivot.y + Math.sin(arrowAngle) * momentRadius;
+                
+                // Calculate tangent direction at the arrowhead position
+                const tangentAngle = arrowAngle + (angle > 0 ? -Math.PI/2 : Math.PI/2);
+                
+                // Draw arrowhead
+                ctx.beginPath();
+                ctx.moveTo(arrowX, arrowY);
+                ctx.lineTo(
+                    arrowX + Math.cos(tangentAngle - Math.PI/6) * 10,
+                    arrowY + Math.sin(tangentAngle - Math.PI/6) * 10
+                );
+                ctx.lineTo(
+                    arrowX + Math.cos(tangentAngle + Math.PI/6) * 10,
+                    arrowY + Math.sin(tangentAngle + Math.PI/6) * 10
+                );
+                ctx.closePath();
+                ctx.fillStyle = MOMENT_COLOR;
+                ctx.fill();
+            }
+            
+            // Add labels
+            ctx.font = "16px Arial";
+            ctx.fillStyle = "#000";
+            ctx.fillText("P", pivot.x + 10, pivot.y - 10);
+            ctx.fillText("C", cg.x + 10, cg.y - 10);
+            
+            // Draw weight vector
+            const arrowLength = 30;
+            drawArrow(cg.x, cg.y, cg.x, cg.y + arrowLength, LINE_OF_ACTION_COLOR);
+            ctx.fillText("Weight", cg.x + 15, cg.y + arrowLength / 2);
+            
+            // Show angle, moment direction, and moment value information at the top left
+            const angleDegrees = (angle * 180 / Math.PI) % 360;
+            ctx.fillText(`Angle: ${angleDegrees.toFixed(1)}°`, 20, 30);
+            
+            // Show moment direction and moment value under the angle reading
+            if (!isAtRest && Math.abs(angle) > 0.01) {
+                const momentDirection = angle > 0 ? "Clockwise" : "Counterclockwise";
+                ctx.fillStyle = MOMENT_COLOR;
+                ctx.fillText(`Moment: ${momentDirection}`, 20, 60);
+                
+                // Calculate and display moment value
+                const momentValue = WEIGHT * (perpDistance / SCALE);
+                ctx.fillText(`Moment = ${momentValue.toFixed(2)} N·m`, 20, 90);
+            }
+            
+            // Show rest state if applicable
+            if (isAtRest) {
+                ctx.fillStyle = "#000";
+                ctx.fillText("At equilibrium position", 20, 60);
+            }
+            
+            // Show pause state if applicable
+            if (isPaused) {
+                ctx.fillStyle = "#FF0000";
+                ctx.fillText("PAUSED", canvas.width - 80, 30);
+            }
+        }
+
+        // Draw an arrow
+        function drawArrow(fromX, fromY, toX, toY, color) {
+            const headLength = 10;
+            const angle = Math.atan2(toX - fromX, toY - fromY);
+            
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw arrowhead
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headLength * Math.sin(angle - Math.PI/6), 
+                    toY - headLength * Math.cos(angle - Math.PI/6));
+            ctx.lineTo(toX - headLength * Math.sin(angle + Math.PI/6), 
+                    toY - headLength * Math.cos(angle + Math.PI/6));
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+
+        // Update physics
+        function updatePhysics() {
+            if (isDragging || isAtRest || isPaused) return;
+            
+            // Calculate moment due to gravity
+            // Moment = Force × Perpendicular distance
+            // The perpendicular distance is the horizontal distance from pivot to line of action
+            const perpDistance = PC_DISTANCE * Math.sin(angle);
+            const moment = WEIGHT * Math.abs(perpDistance);
+            
+            // Calculate angular acceleration (τ = I*α)
+            // For simplicity, we'll use a moment of inertia approximation
+            const momentOfInertia = MASS * PC_DISTANCE * PC_DISTANCE; // Simplified
+            const angularAcceleration = -Math.sign(angle) * moment / momentOfInertia;
+            
+            // Update angular velocity and position
+            angularVelocity += angularAcceleration * TIME_STEP;
+            angularVelocity *= ANGULAR_DAMPING; // Apply damping
+            angle += angularVelocity * TIME_STEP;
+            
+            // Check if the lamina is at rest
+            if (Math.abs(angularVelocity) < REST_THRESHOLD && Math.abs(Math.sin(angle)) < REST_THRESHOLD) {
+                angularVelocity = 0;
+                angle = 0; // Set to exact equilibrium position
+                isAtRest = true;
+            } else {
+                isAtRest = false;
+            }
+        }
+
+        // Clear the canvas
+        function clearCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Main animation loop
+        function animate() {
+            clearCanvas();
+            
+            // Update physics
+            updatePhysics();
+            
+            // Calculate and draw the pentagon
+            const pentagonData = calculatePentagonVertices(angle);
+            drawPentagon(pentagonData);
+            
+            // Continue animation
+            requestAnimationFrame(animate);
+        }
+
+        // Event listeners for dragging
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Calculate pentagon data at current angle
+            const pentagonData = calculatePentagonVertices(angle);
+            
+            // Check if mouse is near the pentagon
+            const { cg } = pentagonData;
+            const distance = Math.sqrt((mouseX - cg.x) ** 2 + (mouseY - cg.y) ** 2);
+            
+            if (distance < PENTAGON_RADIUS * SCALE) {
+                isDragging = true;
+                isAtRest = false;
+                dragStartAngle = angle;
+                lastMousePosition = { x: mouseX, y: mouseY };
+                angularVelocity = 0; // Reset angular velocity when starting to drag
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            
+            // Calculate the angle based on mouse position relative to pivot
+            const deltaX = mouseX - centerX;
+            const deltaY = mouseY - centerY;
+            const newAngle = Math.atan2(deltaX, deltaY);
+            
+            // Calculate angular velocity based on mouse movement
+            const prevAngle = angle;
+            angle = newAngle;
+            angularVelocity = (angle - prevAngle) / TIME_STEP;
+            
+            lastMousePosition = { x: mouseX, y: mouseY };
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (isDragging) {
+                isDragging = false;
+            }
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            if (isDragging) {
+                isDragging = false;
+            }
+        });
+
+        // Touch events for mobile support
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+            
+            // Calculate pentagon data at current angle
+            const pentagonData = calculatePentagonVertices(angle);
+            
+            // Check if touch is near the pentagon
+            const { cg } = pentagonData;
+            const distance = Math.sqrt((touchX - cg.x) ** 2 + (touchY - cg.y) ** 2);
+            
+            if (distance < PENTAGON_RADIUS * SCALE) {
+                isDragging = true;
+                isAtRest = false;
+                dragStartAngle = angle;
+                lastMousePosition = { x: touchX, y: touchY };
+                angularVelocity = 0; // Reset angular velocity when starting to drag
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const touchX = touch.clientX - rect.left;
+            const touchY = touch.clientY - rect.top;
+            
+            // Calculate the angle based on touch position relative to pivot
+            const deltaX = touchX - centerX;
+            const deltaY = touchY - centerY;
+            const newAngle = Math.atan2(deltaX, deltaY);
+            
+            // Calculate angular velocity based on touch movement
+            const prevAngle = angle;
+            angle = newAngle;
+            angularVelocity = (angle - prevAngle) / TIME_STEP;
+            
+            lastMousePosition = { x: touchX, y: touchY };
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            if (isDragging) {
+                isDragging = false;
+            }
+        });
+
+        // Reset button functionality
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            angle = Math.PI / 6; // Reset to initial angle
+            angularVelocity = 0;
+            isAtRest = false;
+        });
+
+        // Pause button functionality
+        const pauseBtn = document.getElementById('pauseBtn');
+        pauseBtn.addEventListener('click', () => {
+            isPaused = !isPaused;
+            pauseBtn.textContent = isPaused ? "Resume" : "Pause";
+        });
+
+        // Start the animation
+        animate();
+    </script>
+</body>
+</html>
