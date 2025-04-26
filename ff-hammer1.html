@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Falling Objects Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            overscroll-behavior: none; /* Prevent pull-to-refresh */
+        }
+        canvas {
+            display: block;
+            background-color: #f0f0f0;
+            border-radius: 0.5rem; /* rounded-lg */
+        }
+        .control-button {
+            padding: 0.5rem 1rem; /* py-2 px-4 */
+            border-radius: 0.375rem; /* rounded-md */
+            font-weight: 600; /* font-semibold */
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .control-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .start-button {
+            background-color: #22c55e; /* bg-green-500 */
+            color: white;
+            border-color: #16a34a; /* border-green-600 */
+        }
+        .start-button:hover:not(:disabled) {
+            background-color: #16a34a; /* hover:bg-green-600 */
+        }
+        .pause-button {
+            background-color: #eab308; /* bg-yellow-500 */
+            color: white;
+            border-color: #ca8a04; /* border-yellow-600 */
+        }
+        .pause-button:hover:not(:disabled) {
+            background-color: #ca8a04; /* hover:bg-yellow-600 */
+        }
+        .reset-button {
+            background-color: #ef4444; /* bg-red-500 */
+            color: white;
+            border-color: #dc2626; /* border-red-600 */
+        }
+        .reset-button:hover:not(:disabled) {
+            background-color: #dc2626; /* hover:bg-red-600 */
+        }
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .checkbox-input {
+            margin-right: 0.5rem; /* mr-2 */
+            cursor: pointer;
+        }
+        .graph-legend {
+            display: flex;
+            justify-content: center;
+            gap: 1rem; /* gap-4 */
+            margin-top: 0.5rem; /* mt-2 */
+            font-size: 0.875rem; /* text-sm */
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+        }
+        .legend-color {
+            width: 1rem; /* w-4 */
+            height: 0.5rem; /* h-2 */
+            margin-right: 0.25rem; /* mr-1 */
+            display: inline-block;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-4 md:p-6 flex flex-col items-center min-h-screen">
+
+    <h1 class="text-2xl md:text-3xl font-bold mb-4 text-gray-800">Hammer vs. Feather Drop</h1>
+
+    <div class="w-full max-w-4xl bg-white p-4 md:p-6 rounded-lg shadow-md">
+        <div class="mb-4 flex flex-wrap justify-center items-center gap-3 md:gap-4">
+            <button id="startButton" class="control-button start-button">Start</button>
+            <button id="pauseButton" class="control-button pause-button" disabled>Pause</button>
+            <button id="resetButton" class="control-button reset-button">Reset</button>
+            <label class="checkbox-label text-gray-700 font-medium ml-4">
+                <input type="checkbox" id="airResistanceCheckbox" class="checkbox-input accent-blue-500">
+                Enable Air Resistance
+            </label>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <div class="border border-gray-300 rounded-lg p-2">
+                <h2 class="text-lg font-semibold text-center mb-2 text-gray-700">Animation</h2>
+                <canvas id="animationCanvas" class="w-full aspect-square"></canvas>
+                <div id="ground" class="h-2 bg-green-600 rounded-b-lg"></div>
+            </div>
+
+            <div class="border border-gray-300 rounded-lg p-2">
+                <h2 class="text-lg font-semibold text-center mb-2 text-gray-700">Velocity-Time Graph</h2>
+                <canvas id="graphCanvas" class="w-full aspect-square"></canvas>
+                 <div class="graph-legend">
+                    <div class="legend-item">
+                        <span class="legend-color bg-blue-500"></span> Hammer
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-color bg-orange-500"></span> Feather
+                    </div>
+                </div>
+            </div>
+        </div>
+         <div id="messageBox" class="mt-4 p-3 text-center text-blue-800 bg-blue-100 border border-blue-300 rounded-md" style="display: none;"></div>
+
+    </div>
+
+    <script>
+        // --- Get DOM Elements ---
+        const animationCanvas = document.getElementById('animationCanvas');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const animationCtx = animationCanvas.getContext('2d');
+        const graphCtx = graphCanvas.getContext('2d');
+        const startButton = document.getElementById('startButton');
+        const pauseButton = document.getElementById('pauseButton');
+        const resetButton = document.getElementById('resetButton');
+        const airResistanceCheckbox = document.getElementById('airResistanceCheckbox');
+        const messageBox = document.getElementById('messageBox');
+
+        // --- Simulation State ---
+        let animationFrameId = null;
+        let isRunning = false;
+        let isPaused = false;
+        let startTime = null; // Tracks the start time of the current run segment
+        let pausedTime = 0; // Accumulates total paused duration
+        let simulationTime = 0; // Total elapsed simulation time (excluding pauses)
+
+        // --- Physics Constants and Parameters ---
+        const g = 9.81; // Acceleration due to gravity (m/s^2) - simulation units
+        const pixelsPerMeter = 50; // Scale factor for animation
+        const timeScale = 0.5; // Slow down simulation time for visibility
+        const rho = 1.225; // Air density (kg/m^3) - simplified
+
+        // --- Object Properties ---
+        const hammer = {
+            name: 'Hammer',
+            mass: 5, // kg (relatively heavy)
+            area: 0.01, // m^2 (cross-sectional area)
+            Cd: 1.0, // Drag coefficient (blunt object)
+            y: 0, // Position (meters from top)
+            vy: 0, // Velocity (m/s)
+            color: 'blue',
+            emoji: '🔨',
+            size: 30, // pixels
+            x: 0.3, // fractional position across canvas width
+            landed: false,
+            path: [] // Store {time, velocity} for graph
+        };
+
+        const feather = {
+            name: 'Feather',
+            mass: 0.005, // kg (very light)
+            area: 0.005, // m^2 (relatively large area for mass)
+            Cd: 1.5, // Drag coefficient (irregular shape)
+            y: 0, // Position (meters from top)
+            vy: 0, // Velocity (m/s)
+            color: 'orange',
+            emoji: '🪶', // Feather emoji
+            size: 25, // pixels
+            x: 0.7, // fractional position across canvas width
+            landed: false,
+            path: [] // Store {time, velocity} for graph
+        };
+
+        let objects = [hammer, feather];
+        let airResistanceEnabled = false;
+
+        // --- Canvas Setup ---
+        function resizeCanvases() {
+            // Make canvases responsive based on their container width
+            const animContainerWidth = animationCanvas.parentElement.clientWidth - 16; // Account for padding
+            const graphContainerWidth = graphCanvas.parentElement.clientWidth - 16;
+
+            // Maintain aspect ratio (square)
+            animationCanvas.width = animContainerWidth;
+            animationCanvas.height = animContainerWidth;
+            graphCanvas.width = graphContainerWidth;
+            graphCanvas.height = graphContainerWidth;
+
+            // Redraw immediately after resize
+            if (!isRunning && !isPaused) {
+                 resetSimulation(); // Reset draws initial state
+            } else {
+                 drawAnimation(); // Redraw current state
+                 drawGraph();
+            }
+        }
+
+        // --- Drawing Functions ---
+        function drawAnimation() {
+            animationCtx.clearRect(0, 0, animationCanvas.width, animationCanvas.height);
+            const groundLevelPixels = animationCanvas.height; // Ground is at the bottom
+
+            objects.forEach(obj => {
+                const drawY = obj.y * pixelsPerMeter;
+                const drawX = animationCanvas.width * obj.x;
+
+                if (drawY < groundLevelPixels - obj.size / 2) {
+                    animationCtx.font = `${obj.size}px Arial`;
+                    animationCtx.textAlign = 'center';
+                    animationCtx.textBaseline = 'middle';
+                    animationCtx.fillText(obj.emoji, drawX, drawY + obj.size / 2); // Adjust Y slightly for better visual centering
+                } else {
+                    // Draw on the ground if landed
+                    animationCtx.font = `${obj.size}px Arial`;
+                    animationCtx.textAlign = 'center';
+                    animationCtx.textBaseline = 'middle';
+                    animationCtx.fillText(obj.emoji, drawX, groundLevelPixels - obj.size / 2);
+                }
+            });
+        }
+
+        function drawGraph() {
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+            const padding = 40;
+            const plotWidth = graphCanvas.width - 2 * padding;
+            const plotHeight = graphCanvas.height - 2 * padding;
+
+            // --- Find Max Time and Velocity for Scaling ---
+            let maxTime = 5; // Default max time
+            let maxVelocity = 10; // Default max velocity
+
+            objects.forEach(obj => {
+                obj.path.forEach(point => {
+                    if (point.time > maxTime) maxTime = point.time;
+                    // Consider absolute velocity if needed, but usually v-t graphs show direction
+                    if (point.velocity > maxVelocity) maxVelocity = point.velocity;
+                });
+            });
+             // Add a buffer to max values for better display
+            maxTime = Math.ceil(maxTime / 5) * 5 || 5; // Round up to nearest 5s
+            maxVelocity = Math.ceil(maxVelocity / 5) * 5 || 10; // Round up to nearest 5 m/s
+
+
+            // --- Draw Axes ---
+            graphCtx.beginPath();
+            graphCtx.strokeStyle = '#888';
+            graphCtx.lineWidth = 1;
+
+            // Y-axis (Velocity)
+            graphCtx.moveTo(padding, padding);
+            graphCtx.lineTo(padding, graphCanvas.height - padding);
+
+            // X-axis (Time)
+            graphCtx.lineTo(graphCanvas.width - padding, graphCanvas.height - padding);
+            graphCtx.stroke();
+
+            // --- Draw Labels and Ticks ---
+            graphCtx.fillStyle = '#333';
+            graphCtx.textAlign = 'center';
+            graphCtx.textBaseline = 'middle';
+
+            // Y-axis Label
+            graphCtx.save();
+            graphCtx.translate(padding / 3, graphCanvas.height / 2);
+            graphCtx.rotate(-Math.PI / 2);
+            graphCtx.fillText('Velocity (m/s)', 0, 0);
+            graphCtx.restore();
+
+            // X-axis Label
+            graphCtx.fillText('Time (s)', graphCanvas.width / 2, graphCanvas.height - padding / 3);
+
+            // Y-axis Ticks and Labels
+            const yTickInterval = maxVelocity / 5; // 5 ticks typically
+            for (let v = 0; v <= maxVelocity; v += yTickInterval) {
+                 if (v === 0 && maxVelocity === 0) continue; // Avoid drawing 0 twice if maxV is 0
+                const yPos = graphCanvas.height - padding - (v / maxVelocity) * plotHeight;
+                graphCtx.moveTo(padding - 5, yPos);
+                graphCtx.lineTo(padding, yPos);
+                graphCtx.stroke();
+                graphCtx.textAlign = 'right';
+                graphCtx.fillText(v.toFixed(1), padding - 8, yPos);
+            }
+
+            // X-axis Ticks and Labels
+            const xTickInterval = maxTime / 5; // 5 ticks
+             for (let t = 0; t <= maxTime; t += xTickInterval) {
+                 if (t === 0 && maxTime === 0) continue;
+                const xPos = padding + (t / maxTime) * plotWidth;
+                graphCtx.moveTo(xPos, graphCanvas.height - padding);
+                graphCtx.lineTo(xPos, graphCanvas.height - padding + 5);
+                graphCtx.stroke();
+                graphCtx.textAlign = 'center';
+                graphCtx.fillText(t.toFixed(1), xPos, graphCanvas.height - padding + 15);
+            }
+
+
+            // --- Plot Data ---
+            objects.forEach(obj => {
+                graphCtx.beginPath();
+                graphCtx.strokeStyle = obj.color;
+                graphCtx.lineWidth = 2;
+
+                obj.path.forEach((point, index) => {
+                    const x = padding + (point.time / maxTime) * plotWidth;
+                    const y = graphCanvas.height - padding - (point.velocity / maxVelocity) * plotHeight;
+
+                    // Ensure plotting stays within bounds
+                    const clampedY = Math.max(padding, Math.min(graphCanvas.height - padding, y));
+
+                    if (index === 0) {
+                        graphCtx.moveTo(x, clampedY);
+                    } else {
+                        graphCtx.lineTo(x, clampedY);
+                    }
+                });
+                graphCtx.stroke();
+            });
+        }
+
+        // --- Physics Update ---
+        function updatePhysics(dt) {
+            const groundLevelMeters = animationCanvas.height / pixelsPerMeter;
+            let allLanded = true;
+
+            objects.forEach(obj => {
+                if (obj.landed) return; // Skip landed objects
+
+                allLanded = false; // If any object is not landed, simulation continues
+
+                // Forces
+                const Fg = obj.mass * g;
+                let Fair = 0;
+                if (airResistanceEnabled) {
+                    // Air resistance opposes motion, so its sign is opposite to velocity
+                    const direction = obj.vy > 0 ? -1 : 1; // Upward force if falling down
+                    Fair = direction * 0.5 * rho * obj.Cd * obj.area * obj.vy * obj.vy;
+                     // Basic check to prevent Fair from exceeding Fg and causing upward acceleration from rest
+                    if (Math.abs(Fair) > Math.abs(Fg) && obj.vy !== 0) {
+                       Fair = direction * Fg * 0.99; // Cap air resistance slightly below gravity
+                    } else if (obj.vy === 0) {
+                        Fair = 0; // No drag if not moving
+                    }
+                }
+
+                const Fnet = Fg + Fair;
+                const ay = Fnet / obj.mass;
+
+                // Update velocity and position (Euler integration)
+                obj.vy += ay * dt;
+                obj.y += obj.vy * dt;
+
+                // Store data for graph
+                // Add points at reasonable intervals, not every single frame
+                if (!obj.path.length || simulationTime - obj.path[obj.path.length - 1].time > 0.05) {
+                   obj.path.push({ time: simulationTime, velocity: obj.vy });
+                }
+
+
+                // Check for landing
+                const objectBottom = obj.y + (obj.size / 2) / pixelsPerMeter; // Approximate bottom in meters
+                if (objectBottom >= groundLevelMeters) {
+                    obj.y = groundLevelMeters - (obj.size / 2) / pixelsPerMeter; // Place on ground
+                    obj.vy = 0;
+                    obj.landed = true;
+                    // Ensure final point is added
+                    if (!obj.path.length || obj.path[obj.path.length - 1].velocity !== 0) {
+                       obj.path.push({ time: simulationTime, velocity: 0 });
+                    }
+                    showMessage(`${obj.name} landed!`);
+                }
+            });
+             if (allLanded && isRunning) {
+                stopSimulation(true); // Stop if all objects have landed
+                showMessage("Both objects landed.");
+            }
+        }
+
+        // --- Simulation Loop ---
+        function gameLoop(timestamp) {
+            if (!isRunning || isPaused) return;
+
+            if (!startTime) {
+                startTime = timestamp; // Initialize start time on the first frame
+            }
+
+            const elapsedSinceLastFrame = (timestamp - startTime) / 1000; // Time in seconds since last frame of *this run*
+            startTime = timestamp; // Reset start time for the next frame calculation
+
+            const dt = elapsedSinceLastFrame * timeScale; // Apply time scaling
+            simulationTime += dt; // Update total simulation time
+
+            updatePhysics(dt);
+            drawAnimation();
+            drawGraph();
+
+
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- Control Functions ---
+        function startSimulation() {
+            if (isRunning) return; // Don't start if already running
+
+            showMessage("Simulation started.");
+            if (isPaused) { // Resuming
+                // Adjust start time to account for the pause duration
+                startTime = performance.now(); // Reset start time for elapsed calculation
+                isPaused = false;
+            } else { // Starting fresh or after reset
+                resetSimulationState(); // Clear paths, reset positions etc. but keep settings
+                startTime = performance.now();
+                pausedTime = 0; // Reset accumulated pause time
+                simulationTime = 0; // Reset simulation time counter
+            }
+
+            isRunning = true;
+            updateButtonStates();
+            animationFrameId = requestAnimationFrame(gameLoop);
+        }
+
+        function pauseSimulation() {
+            if (!isRunning || isPaused) return;
+
+            isPaused = true;
+            isRunning = false; // Set running to false when paused
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            // Record the time elapsed during this run segment before pausing
+            // pausedTime += (performance.now() - startTime); // No need, simulationTime tracks it
+            showMessage("Simulation paused.");
+            updateButtonStates();
+        }
+
+         function stopSimulation(landed = false) {
+            isRunning = false;
+            isPaused = false;
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+            startTime = null;
+            if (!landed) showMessage("Simulation stopped.");
+            updateButtonStates();
+        }
+
+
+        function resetSimulationState() {
+             simulationTime = 0;
+             pausedTime = 0;
+             startTime = null;
+             objects.forEach(obj => {
+                obj.y = 10 / pixelsPerMeter; // Start slightly below the top edge
+                obj.vy = 0;
+                obj.landed = false;
+                obj.path = [{ time: 0, velocity: 0 }]; // Initial point for graph
+            });
+        }
+
+        function resetSimulation() {
+            stopSimulation();
+            resetSimulationState();
+            showMessage("Simulation reset.");
+            // Initial draw
+            resizeCanvases(); // Recalculate sizes and draw initial state
+        }
+
+
+        function updateButtonStates() {
+            startButton.disabled = isRunning || isPaused; // Disabled if running or paused (use Resume logic via start)
+            startButton.textContent = isPaused ? 'Resume' : 'Start';
+            pauseButton.disabled = !isRunning || isPaused;
+            resetButton.disabled = false; // Reset is always enabled unless running initial frames? No, keep enabled.
+        }
+
+        function showMessage(msg) {
+            messageBox.textContent = msg;
+            messageBox.style.display = 'block';
+            // Optional: Hide message after a few seconds
+            // setTimeout(() => { messageBox.style.display = 'none'; }, 3000);
+        }
+
+        // --- Event Listeners ---
+        startButton.addEventListener('click', startSimulation);
+        pauseButton.addEventListener('click', pauseSimulation);
+        resetButton.addEventListener('click', resetSimulation);
+        airResistanceCheckbox.addEventListener('change', (e) => {
+            airResistanceEnabled = e.target.checked;
+             // Optional: Reset if setting changes mid-run? Or just apply going forward?
+             // Let's apply going forward. If they want a clean comparison, they should reset.
+             showMessage(`Air Resistance ${airResistanceEnabled ? 'Enabled' : 'Disabled'}.`);
+             if (!isRunning && !isPaused) {
+                 // If simulation hasn't started, redraw graphs potentially showing terminal velocity lines differently
+                 drawGraph();
+             }
+        });
+
+        window.addEventListener('resize', resizeCanvases);
+
+        // --- Initial Setup ---
+        resetSimulation(); // Initialize positions and draw initial state
+
+
+    </script>
+
+</body>
+</html>
