@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Godzilla's Reflection (Horizontal Mirror)</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 10px;
+            background-color: #f0f0f0;
+        }
+        canvas {
+            border: 1px solid #000;
+            background-color: #fff;
+        }
+        .controls {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e0e0e0;
+            border-radius: 5px;
+            text-align: left;
+        }
+        .control-group {
+            margin-bottom: 8px;
+        }
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+        .controls label {
+            margin-right: 5px;
+            display: inline-block;
+            min-width: 110px;
+        }
+        .controls input[type="range"] {
+            width: 130px;
+            vertical-align: middle;
+        }
+        .controls input[type="checkbox"] {
+            vertical-align: middle;
+        }
+        .controls span {
+            display: inline-block;
+            width: 35px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        h2 {
+            margin-bottom: 5px;
+        }
+        .explanation {
+            max-width: 750px;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h2>Godzilla's Reflection (Horizontal Mirror)</h2>
+    <div class="explanation">
+        <p>The Eye (A) observes Godzilla's (B) reflection in a horizontal mirror. A cloth can block the Eye's view of its *own* reflection, but it might still see Godzilla if the light rays from Godzilla can reflect off an uncovered part of the mirror and reach the Eye.</p>
+    </div>
+    <canvas id="simulationCanvas" width="800" height="500"></canvas>
+    <div class="controls">
+        <div class="control-group">
+            <label for="eyeSlider">Eye X-Pos:</label>
+            <input type="range" id="eyeSlider" min="400" max="750" value="600">
+            <span id="eyeValue">600</span>
+        </div>
+        <div class="control-group">
+            <label for="clothPosSlider">Cloth X-Pos:</label>
+            <input type="range" id="clothPosSlider" min="100" max="600" value="350">
+            <span id="clothPosValue">350</span>
+        </div>
+        <div class="control-group">
+            <label for="showRaysToggle">Show Rays:</label>
+            <input type="checkbox" id="showRaysToggle" checked>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const canvas = document.getElementById('simulationCanvas');
+            const ctx = canvas.getContext('2d');
+
+            const eyeSlider = document.getElementById('eyeSlider');
+            const eyeValueSpan = document.getElementById('eyeValue');
+            const clothPosSlider = document.getElementById('clothPosSlider');
+            const clothPosValueSpan = document.getElementById('clothPosValue');
+            const showRaysToggle = document.getElementById('showRaysToggle');
+
+            const mirrorYLevel = canvas.height / 2;
+            const mirrorThickness = 8;
+            const fullMirrorLength = canvas.width - 100;
+            const mirrorLength = fullMirrorLength / 2;
+            const mirrorShiftAmount = 100;
+            const mirrorCenterX = (canvas.width / 2) - mirrorShiftAmount;
+            const mirrorStartX = mirrorCenterX - mirrorLength / 2;
+            const mirrorEndX = mirrorStartX + mirrorLength;
+
+            const godzillaImage = new Image();
+            godzillaImage.src = '../godzilla.png';
+            let godzillaImageLoaded = false;
+
+            godzillaImage.onload = () => {
+                godzillaImageLoaded = true;
+                godzilla.width = 100;
+                godzilla.height = (godzillaImage.height / godzillaImage.width) * godzilla.width;
+                drawScene();
+            };
+            godzillaImage.onerror = () => {
+                console.error("Failed to load Godzilla image.");
+            };
+
+            let godzilla = {
+                x: 200,
+                y: mirrorYLevel + 20,
+                width: 100,
+                height: 100,
+                facingLeft: false
+            };
+
+            const initialEyeX = 600;
+            eyeSlider.min = 400;
+            eyeSlider.max = 750;
+            eyeSlider.value = initialEyeX;
+            eyeValueSpan.textContent = initialEyeX;
+
+            let initialClothX = mirrorStartX + (mirrorLength / 2) - 50;
+            if (initialClothX < clothPosSlider.min) initialClothX = clothPosSlider.min;
+            if (initialClothX > clothPosSlider.max) initialClothX = clothPosSlider.max;
+            clothPosSlider.min = mirrorStartX;
+            clothPosSlider.max = mirrorEndX - 100;
+            clothPosSlider.value = initialClothX;
+            clothPosValueSpan.textContent = initialClothX;
+
+            let eye = {
+                x: parseInt(eyeSlider.value),
+                y: mirrorYLevel + 50,
+                radius: 25,
+                irisColor: 'deepskyblue',
+                pupilColor: 'black'
+            };
+
+            let cloth = {
+                x: parseInt(clothPosSlider.value),
+                width: 100,
+                height: mirrorThickness + 2,
+                y: mirrorYLevel - (mirrorThickness + 2) / 2,
+                color: 'darkblue'
+            };
+
+            let showRays = true;
+            let canSeeGodzilla = false;
+
+            function drawArrow(fromX, fromY, toX, toY, color, lineWidth = 2, isDashed = false) {
+                // If showRays is false, DO NOT draw blue/red (solid/dashed) rays.
+                // The grey line for "blocked self-reflection" will be handled by an explicit if(showRays) at its call site.
+                if (!showRays && (color === 'blue' || color === 'red')) return;
+
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = lineWidth;
+                if (isDashed) { ctx.setLineDash([5, 5]); } else { ctx.setLineDash([]); }
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
+                ctx.stroke();
+
+                // Arrowhead: Only for blue/red rays and only if showRays is true.
+                if ((color === 'blue' || color === 'red') && showRays) {
+                    const headlen = 10;
+                    const angle = Math.atan2(toY - fromY, toX - fromX);
+                    ctx.beginPath();
+                    ctx.fillStyle = color;
+                    ctx.moveTo(toX, toY);
+                    ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+                    ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+                    ctx.closePath();
+                    ctx.fill();
+                }
+                ctx.setLineDash([]);
+            }
+
+            function drawGodzillaWithImage(dx, dy, dwidth, dheight, isVirtualImage = false, facingLeft = false, isHorizontalMirrorImage = false) {
+                if (!godzillaImageLoaded) return;
+                ctx.save();
+                if (isVirtualImage) { ctx.globalAlpha = 0.6; }
+                ctx.translate(dx, dy);
+                ctx.translate(dwidth / 2, dheight / 2);
+                if (facingLeft) { ctx.scale(-1, 1); }
+                if (isHorizontalMirrorImage) { ctx.scale(1, -1); }
+                ctx.drawImage(godzillaImage, -dwidth / 2, -dheight / 2, dwidth, dheight);
+                ctx.restore();
+            }
+
+            function drawEyeShape(ex, ey, eradius, eirisColor, epupilColor) {
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.ellipse(ex, ey, eradius, eradius * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                let irisTargetX = mirrorStartX + mirrorLength / 2;
+                if(canSeeGodzilla) { irisTargetX = godzilla.x + godzilla.width / 2; }
+                let irisOffsetX = 0;
+                if (irisTargetX < ex) irisOffsetX = -eradius * 0.15;
+                else if (irisTargetX > ex) irisOffsetX = eradius * 0.15;
+                ctx.fillStyle = eirisColor;
+                ctx.beginPath();
+                ctx.arc(ex + irisOffsetX, ey, eradius * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = epupilColor;
+                ctx.beginPath();
+                ctx.arc(ex + irisOffsetX, ey, eradius * 0.25, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            function drawScene() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                showRays = showRaysToggle.checked;
+                eye.x = parseInt(eyeSlider.value);
+                cloth.x = parseInt(clothPosSlider.value);
+                eyeValueSpan.textContent = eye.x;
+                clothPosValueSpan.textContent = cloth.x;
+
+                if (godzillaImageLoaded && godzillaImage.width > 0) {
+                     godzilla.height = (godzillaImage.height / godzillaImage.width) * godzilla.width;
+                }
+
+                ctx.fillStyle = 'silver';
+                ctx.fillRect(mirrorStartX, mirrorYLevel - mirrorThickness / 2, mirrorEndX - mirrorStartX, mirrorThickness);
+                ctx.strokeStyle = '#999';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (let i = mirrorStartX; i < mirrorEndX; i += 10) {
+                    ctx.moveTo(i, mirrorYLevel + mirrorThickness / 2);
+                    ctx.lineTo(i + 5, mirrorYLevel + mirrorThickness / 2 + 5);
+                }
+                ctx.stroke();
+
+                drawGodzillaWithImage(godzilla.x, godzilla.y, godzilla.width, godzilla.height, false, godzilla.facingLeft, false);
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'center';
+                ctx.font = '16px Arial';
+                ctx.fillText("Godzilla (B)", godzilla.x + godzilla.width / 2, godzilla.y + godzilla.height + 20);
+
+                const imageGodzillaY = mirrorYLevel - (godzilla.y - mirrorYLevel) - godzilla.height;
+                const imageGodzilla = {
+                    x: godzilla.x,
+                    y: imageGodzillaY,
+                    width: godzilla.width,
+                    height: godzilla.height
+                };
+                drawGodzillaWithImage(imageGodzilla.x, imageGodzilla.y, imageGodzilla.width, imageGodzilla.height, true, godzilla.facingLeft, true);
+
+                ctx.fillStyle = 'grey';
+                ctx.font = '16px Arial';
+                let imageLabelY = imageGodzilla.y - 25;
+                if (imageLabelY < 30) imageLabelY = 30;
+                ctx.fillText("Godzilla's Image", imageGodzilla.x + godzilla.width / 2, imageLabelY);
+                ctx.font = '14px Arial';
+                ctx.fillText("(Virtual)", imageGodzilla.x + godzilla.width / 2, imageLabelY + 17);
+
+                drawEyeShape(eye.x, eye.y, eye.radius, eye.irisColor, eye.pupilColor);
+                ctx.fillStyle = 'black';
+                ctx.font = '16px Arial';
+                ctx.fillText("Eye (A)", eye.x, eye.y + eye.radius * 0.7 + 20);
+
+                ctx.textAlign = 'center';
+                const visibilityTextY = eye.y + eye.radius * 0.7 + 40;
+                ctx.fillStyle = canSeeGodzilla ? 'darkgreen' : 'darkred'; // Color based on previous frame's canSeeGodzilla
+                ctx.font = 'bold 14px Arial';
+                ctx.fillText(`The Eye ${canSeeGodzilla ? "CAN" : "CANNOT"} see Godzilla's image.`, eye.x, visibilityTextY);
+
+                ctx.fillStyle = cloth.color;
+                ctx.fillRect(cloth.x, cloth.y, cloth.width, cloth.height);
+                ctx.fillStyle = 'white';
+                ctx.font = '12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText("Cloth", cloth.x + cloth.width / 2, cloth.y + cloth.height / 2 + 4);
+
+                canSeeGodzilla = false; // Recalculate for current frame
+                let canSeeTopRay = false;
+                let canSeeBottomRay = false;
+
+                const godzilla_TopPoint = { x: godzilla.x + godzilla.width / 2, y: godzilla.y };
+                const godzilla_BottomPoint = { x: godzilla.x + godzilla.width / 2, y: godzilla.y + godzilla.height };
+                const image_TopPoint = { x: godzilla_TopPoint.x, y: mirrorYLevel - (godzilla_TopPoint.y - mirrorYLevel) };
+                const image_BottomPoint = { x: godzilla_BottomPoint.x, y: mirrorYLevel - (godzilla_BottomPoint.y - mirrorYLevel) };
+                const eye_ViewPoint = { x: eye.x, y: eye.y };
+
+                if (eye_ViewPoint.x !== image_TopPoint.x) {
+                    let slopeTop = (eye_ViewPoint.y - image_TopPoint.y) / (eye_ViewPoint.x - image_TopPoint.x);
+                    let reflectionPointTopX = image_TopPoint.x + (mirrorYLevel - image_TopPoint.y) / slopeTop;
+                    if (reflectionPointTopX >= mirrorStartX && reflectionPointTopX <= mirrorEndX &&
+                        !(reflectionPointTopX >= cloth.x && reflectionPointTopX <= cloth.x + cloth.width)) {
+                        canSeeTopRay = true;
+                        if (showRays) {
+                             drawArrow(image_TopPoint.x, image_TopPoint.y, reflectionPointTopX, mirrorYLevel, 'red', 2, true);
+                             drawArrow(reflectionPointTopX, mirrorYLevel, eye_ViewPoint.x, eye_ViewPoint.y, 'red', 2, false);
+                             drawArrow(godzilla_TopPoint.x, godzilla_TopPoint.y, reflectionPointTopX, mirrorYLevel, 'blue', 2, false);
+                        }
+                    }
+                }
+                if (eye_ViewPoint.x !== image_BottomPoint.x) {
+                    let slopeBottom = (eye_ViewPoint.y - image_BottomPoint.y) / (eye_ViewPoint.x - image_BottomPoint.x);
+                    let reflectionPointBottomX = image_BottomPoint.x + (mirrorYLevel - image_BottomPoint.y) / slopeBottom;
+                    if (reflectionPointBottomX >= mirrorStartX && reflectionPointBottomX <= mirrorEndX &&
+                        !(reflectionPointBottomX >= cloth.x && reflectionPointBottomX <= cloth.x + cloth.width)) {
+                        canSeeBottomRay = true;
+                         if (showRays) {
+                            drawArrow(image_BottomPoint.x, image_BottomPoint.y, reflectionPointBottomX, mirrorYLevel, 'red', 2, true);
+                            drawArrow(reflectionPointBottomX, mirrorYLevel, eye_ViewPoint.x, eye_ViewPoint.y, 'red', 2, false);
+                            drawArrow(godzilla_BottomPoint.x, godzilla_BottomPoint.y, reflectionPointBottomX, mirrorYLevel, 'blue', 2, false);
+                        }
+                    }
+                }
+                canSeeGodzilla = canSeeTopRay || canSeeBottomRay;
+
+
+                let reflectionPointForEye_Self_X = cloth.x + cloth.width / 2;
+                 if (reflectionPointForEye_Self_X >= cloth.x && reflectionPointForEye_Self_X <= cloth.x + cloth.width &&
+                    reflectionPointForEye_Self_X >= mirrorStartX && reflectionPointForEye_Self_X <= mirrorEndX) {
+                    if (showRays) { // CORRECTED: Only draw this grey line if showRays is true
+                         drawArrow(eye_ViewPoint.x, eye_ViewPoint.y, reflectionPointForEye_Self_X, mirrorYLevel, 'gray', 1.5, true);
+                    }
+                    // The "X" mark to indicate the blocked spot can still be shown even if rays are off.
+                    ctx.fillStyle = 'red';
+                    ctx.font = 'bold 14px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText("X", reflectionPointForEye_Self_X, mirrorYLevel - 10);
+                }
+
+                if (showRays) { // Legend also depends on showRays
+                    ctx.font = '12px Arial';
+                    const legendItemHeight = 20;
+                    const legendPadding = 15;
+                    const arrowLength = 30;
+                    const arrowTextGap = 5;
+                    const textForMeasure1 = "Light from Godzilla to Mirror";
+                    const textForMeasure2 = "Apparent path from Godzilla's Image";
+                    const textWidth1 = ctx.measureText(textForMeasure1).width;
+                    const textWidth2 = ctx.measureText(textForMeasure2).width;
+                    const maxLegendTextWidth = Math.max(textWidth1, textWidth2);
+                    let currentLegendY = legendPadding + 5;
+                    let legendTextX = canvas.width - legendPadding - maxLegendTextWidth;
+                    let legendArrowX = legendTextX - arrowTextGap - arrowLength;
+                    ctx.textAlign = 'left';
+                    drawArrow(legendArrowX, currentLegendY, legendArrowX + arrowLength, currentLegendY, 'blue', 1.5);
+                    ctx.fillStyle = 'black'; ctx.fillText(textForMeasure1, legendTextX, currentLegendY + 4);
+                    currentLegendY += legendItemHeight;
+                    drawArrow(legendArrowX, currentLegendY, legendArrowX + arrowLength, currentLegendY, 'red', 1.5, false);
+                    ctx.fillStyle = 'black'; ctx.fillText("Light from Mirror to Eye", legendTextX, currentLegendY + 4);
+                    currentLegendY += legendItemHeight;
+                    drawArrow(legendArrowX, currentLegendY, legendArrowX + arrowLength, currentLegendY, 'red', 1.5, true);
+                    ctx.fillStyle = 'black'; ctx.fillText(textForMeasure2, legendTextX, currentLegendY + 4);
+                }
+            }
+
+            eyeSlider.addEventListener('input', drawScene);
+            clothPosSlider.addEventListener('input', drawScene);
+            showRaysToggle.addEventListener('change', drawScene);
+
+            drawScene();
+        };
+    </script>
+</body>
+</html>
