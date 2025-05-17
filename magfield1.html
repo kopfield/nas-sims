@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html>
+<head>
+            <style>.lw { font-size: 60px; }</style>
+        <style id="_goober"> .go1475592160{height:0;}.go1671063245{height:auto;}.go1888806478{display:flex;flex-wrap:wrap;flex-grow:1;}@media (min-width:600px){.go1888806478{flex-grow:initial;min-width:288px;}}.go167266335{background-color:#313131;font-size:0.875rem;line-height:1.43;letter-spacing:0.01071em;color:#fff;align-items:center;padding:6px 16px;border-radius:4px;box-shadow:0px 3px 5px -1px rgba(0,0,0,0.2),0px 6px 10px 0px rgba(0,0,0,0.14),0px 1px 18px 0px rgba(0,0,0,0.12);}.go3162094071{padding-left:20px;}.go3844575157{background-color:#313131;}.go1725278324{background-color:#43a047;}.go3651055292{background-color:#d32f2f;}.go4215275574{background-color:#ff9800;}.go1930647212{background-color:#2196f3;}.go946087465{display:flex;align-items:center;padding:8px 0;}.go703367398{display:flex;align-items:center;margin-left:auto;padding-left:16px;margin-right:-8px;}.go3963613292{width:100%;position:relative;transform:translateX(0);top:0;right:0;bottom:0;left:0;min-width:288px;}.go1141946668{box-sizing:border-box;display:flex;max-height:100%;position:fixed;z-index:1400;height:auto;width:auto;transition:top 300ms ease 0ms,right 300ms ease 0ms,bottom 300ms ease 0ms,left 300ms ease 0ms,max-width 300ms ease 0ms;pointer-events:none;max-width:calc(100% - 40px);}.go1141946668 .notistack-CollapseWrapper{padding:6px 0px;transition:padding 300ms ease 0ms;}@media (max-width:599.95px){.go1141946668{width:100%;max-width:calc(100% - 32px);}}.go3868796639 .notistack-CollapseWrapper{padding:2px 0px;}.go3118922589{top:14px;flex-direction:column;}.go1453831412{bottom:14px;flex-direction:column-reverse;}.go4027089540{left:20px;}@media (min-width:600px){.go4027089540{align-items:flex-start;}}@media (max-width:599.95px){.go4027089540{left:16px;}}.go2989568495{right:20px;}@media (min-width:600px){.go2989568495{align-items:flex-end;}}@media (max-width:599.95px){.go2989568495{right:16px;}}.go4034260886{left:50%;transform:translateX(-50%);}@media (min-width:600px){.go4034260886{align-items:center;}}</style></head>
+        <body>
+            
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Magnetic Field Simulation</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; background-color: #e0e0e0; display: flex; flex-direction: column; align-items: center; }
+        #controls {
+            padding: 10px;
+            background-color: #f0f0f0;
+            border-bottom: 1px solid #ccc;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .control-group label, .control-group .label-header {
+            font-size: 12px;
+            margin-bottom: 3px;
+            color: #555;
+        }
+        .control-group input[type="range"], .control-group input[type="number"], .control-group select {
+            margin-right: 5px;
+            height: 20px;
+            padding: 2px;
+            font-size: 12px;
+        }
+        .control-group input[type="checkbox"] {
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+        .control-group span {
+            font-size: 12px;
+            min-width: 25px;
+            display: inline-block;
+            text-align: right;
+        }
+        .magnet-visibility-controls {
+            display: flex;
+            gap: 10px;
+        }
+        #info {
+            margin-top: 5px;
+            text-align: center;
+            color: #333;
+            font-size: 13px;
+        }
+        canvas { display: block; margin-top: 10px; background-color: #f8f8f8; border: 1px solid #ccc; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+    </style>
+
+
+    <div id="controls">
+        <div class="control-group">
+            <label for="fieldLineDensity">Field Line Density:</label>
+            <div>
+                <input type="range" id="fieldLineDensity" min="1" max="15" value="7" step="2">
+                <span id="fieldLineDensityValue">7</span>
+            </div>
+        </div>
+        <div class="control-group">
+            <span class="label-header">Magnet Visibility:</span>
+            <div class="magnet-visibility-controls">
+                <label for="showMagnet1"><input type="checkbox" id="showMagnet1" checked=""> Magnet 1</label>
+                <label for="showMagnet2"><input type="checkbox" id="showMagnet2" checked=""> Magnet 2</label>
+            </div>
+        </div>
+        <div class="control-group">
+            <label for="showPoleLabels">
+                <input type="checkbox" id="showPoleLabels" checked=""> Show Pole Labels
+            </label>
+        </div>
+        <div class="control-group">
+            <label for="showFieldArrows">
+                <input type="checkbox" id="showFieldArrows" checked=""> Show Field Arrows
+            </label>
+        </div>
+         <div class="control-group">
+            <label for="resetButton">Actions:</label>
+            <button id="resetButton" style="padding: 3px 8px; font-size: 12px;">Reset Positions</button>
+        </div>
+    </div>
+    <div id="info">Click and drag magnets or the compass. Adjust settings above.</div>
+    <canvas id="simulationCanvas" width="791" height="550" style="cursor: grab;"></canvas>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let config = {
+            magnetLength: 80,
+            magnetThickness: 30,
+            compassBodyRadius: 25,
+            compassNeedleLength: 45,
+            compassNeedleWidth: 3,
+            compassArrowSize: 8,
+            // --- ADJUSTED VALUES FOR WEAKER, MORE CONTAINED FIELD ---
+            magneticFieldScaleFactor: 100000, // Reduced from 200000
+            FIXED_MAGNET_STRENGTH: 25,      // Kept moderate, scaleFactor has more impact on spread
+            FIXED_FIELD_LINE_MAX_SEGMENTS: 120, // Reduced from 180
+            fieldLineStepSize: 2.5,           // Slightly smaller step for potentially tighter curves
+            fieldLineSeedOffset: 2,          // Seed lines closer to the magnet surface
+            // --- END ADJUSTED VALUES ---
+            numFieldLinesPerMagnetSide: 7, 
+            fieldLineColor: 'rgba(50, 50, 50, 0.6)',
+            fieldLineWidth: 1,
+            fieldArrowSize: 6,
+            fieldArrowFrequency: 25, // Maybe show arrows a bit less frequently
+            showPoleLabels: true, 
+            showFieldArrows: true, 
+            showMagnet1: true, 
+            showMagnet2: true, 
+            poleLabelFont: '10px Arial',
+            poleLabelColor: 'white'
+        };
+
+        let canvasWidth = Math.min(window.innerWidth - 40, 800);
+        let canvasHeight = Math.min(window.innerHeight - 150, 550);
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+
+        const initialMagnetPositions = [
+            { x: canvasWidth / 2 - 100, y: canvasHeight / 2, angle: 0 },
+            { x: canvasWidth / 2 + 100, y: canvasHeight / 2, angle: Math.PI }
+        ];
+        const initialCompassPosition = { x: canvasWidth / 2, y: canvasHeight / 2 - 100 };
+
+        let magnets = [];
+        let compass = {};
+        let visibleMagnets = []; 
+
+        function initializeObjects() {
+            magnets = [
+                {
+                    id: 'magnet1',
+                    x: initialMagnetPositions[0].x,
+                    y: initialMagnetPositions[0].y,
+                    angle: initialMagnetPositions[0].angle,
+                    length: config.magnetLength,
+                    thickness: config.magnetThickness,
+                    strength: config.FIXED_MAGNET_STRENGTH,
+                    moment: { x: 0, y: 0 },
+                    colorN: 'red',
+                    colorS: 'blue',
+                    isDraggable: true,
+                    isVisible: config.showMagnet1
+                },
+                {
+                    id: 'magnet2',
+                    x: initialMagnetPositions[1].x,
+                    y: initialMagnetPositions[1].y,
+                    angle: initialMagnetPositions[1].angle,
+                    length: config.magnetLength,
+                    thickness: config.magnetThickness,
+                    strength: config.FIXED_MAGNET_STRENGTH,
+                    moment: { x: 0, y: 0 },
+                    colorN: 'red',
+                    colorS: 'blue',
+                    isDraggable: true,
+                    isVisible: config.showMagnet2
+                }
+            ];
+
+            compass = {
+                id: 'compass',
+                x: initialCompassPosition.x,
+                y: initialCompassPosition.y,
+                angle: 0,
+                bodyRadius: config.compassBodyRadius,
+                needleLength: config.compassNeedleLength,
+                needleWidth: config.compassNeedleWidth,
+                arrowSize: config.compassArrowSize,
+                bodyColor: 'rgba(220, 220, 210, 0.8)',
+                borderColor: '#888',
+                needleColor: 'darkgray',
+                tipColor: 'red',
+                isDraggable: true
+            };
+            updateAllMagnetMoments();
+            updateVisibleMagnets();
+        }
+
+        function updateMagnetMoment(magnet) {
+            magnet.strength = config.FIXED_MAGNET_STRENGTH;
+            magnet.moment.x = magnet.strength * Math.cos(magnet.angle);
+            magnet.moment.y = magnet.strength * Math.sin(magnet.angle);
+        }
+        function updateAllMagnetMoments() {
+            magnets.forEach(updateMagnetMoment);
+        }
+
+        function updateVisibleMagnets() {
+            magnets[0].isVisible = config.showMagnet1;
+            magnets[1].isVisible = config.showMagnet2;
+            visibleMagnets = magnets.filter(m => m.isVisible);
+        }
+
+        function magneticDipoleField2D(point, magnet) {
+            const r_vec_x = point.x - magnet.x;
+            const r_vec_y = point.y - magnet.y;
+            const r_mag_sq = r_vec_x * r_vec_x + r_vec_y * r_vec_y;
+            // Softening factor: using magnet.thickness as a base might be more robust for different magnet shapes
+            const epsilon_sq = Math.pow(magnet.thickness * 0.5, 2); // Adjusted epsilon
+            const r_mag_soft_sq = r_mag_sq + epsilon_sq;
+
+            if (r_mag_soft_sq < 1e-6) return { x: 0, y: 0 };
+            
+            const r_mag_soft_cubed = Math.pow(r_mag_soft_sq, 1.5);
+            let r_hat_orig_x = 0, r_hat_orig_y = 0;
+            if (r_mag_sq > 1e-6) {
+                const r_mag_orig = Math.sqrt(r_mag_sq);
+                r_hat_orig_x = r_vec_x / r_mag_orig;
+                r_hat_orig_y = r_vec_y / r_mag_orig;
+            }
+
+            const m_dot_r_hat = magnet.moment.x * r_hat_orig_x + magnet.moment.y * r_hat_orig_y;
+            const Bx = config.magneticFieldScaleFactor * (3 * m_dot_r_hat * r_hat_orig_x - magnet.moment.x) / r_mag_soft_cubed;
+            const By = config.magneticFieldScaleFactor * (3 * m_dot_r_hat * r_hat_orig_y - magnet.moment.y) / r_mag_soft_cubed;
+            
+            return { x: Bx, y: By };
+        }
+
+        function totalMagneticField2D(point) {
+            let totalBx = 0;
+            let totalBy = 0;
+            visibleMagnets.forEach(magnet => { 
+                const field = magneticDipoleField2D(point, magnet);
+                totalBx += field.x;
+                totalBy += field.y;
+            });
+            return { x: totalBx, y: totalBy };
+        }
+
+        function drawMagnet(magnet) {
+            if (!magnet.isVisible) return; 
+
+            ctx.save();
+            ctx.translate(magnet.x, magnet.y);
+            ctx.rotate(magnet.angle);
+
+            ctx.fillStyle = magnet.colorS;
+            ctx.fillRect(-magnet.length / 2, -magnet.thickness / 2, magnet.length / 2, magnet.thickness);
+            ctx.fillStyle = magnet.colorN;
+            ctx.fillRect(0, -magnet.thickness / 2, magnet.length / 2, magnet.thickness);
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(-magnet.length / 2, -magnet.thickness / 2, magnet.length, magnet.thickness);
+
+            if (config.showPoleLabels) {
+                ctx.fillStyle = config.poleLabelColor;
+                ctx.font = config.poleLabelFont;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('S', -magnet.length / 4, 0);
+                ctx.fillText('N', magnet.length / 4, 0);
+            }
+            ctx.restore();
+        }
+
+        function drawCompass(c) {
+            ctx.save();
+            ctx.translate(c.x, c.y);
+            ctx.beginPath();
+            ctx.arc(0, 0, c.bodyRadius, 0, Math.PI * 2);
+            ctx.fillStyle = c.bodyColor;
+            ctx.fill();
+            ctx.strokeStyle = c.borderColor;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.rotate(c.angle);
+            ctx.beginPath();
+            ctx.moveTo(-c.needleLength / 2, 0);
+            ctx.lineTo(c.needleLength / 2, 0);
+            ctx.strokeStyle = c.needleColor;
+            ctx.lineWidth = c.needleWidth;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(c.needleLength / 2, 0);
+            ctx.lineTo(c.needleLength / 2 - c.arrowSize, -c.arrowSize / 2);
+            ctx.lineTo(c.needleLength / 2 - c.arrowSize, c.arrowSize / 2);
+            ctx.closePath();
+            ctx.fillStyle = c.tipColor;
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(0, 0, c.needleWidth, 0, Math.PI * 2);
+            ctx.fillStyle = '#333';
+            ctx.fill();
+            ctx.restore();
+        }
+        
+        function drawFieldLines() {
+            visibleMagnets.forEach(magnet => { 
+                const n_pole_edge_center_x = magnet.x + (magnet.length / 2 + config.fieldLineSeedOffset) * Math.cos(magnet.angle);
+                const n_pole_edge_center_y = magnet.y + (magnet.length / 2 + config.fieldLineSeedOffset) * Math.sin(magnet.angle);
+                const perp_angle_n = magnet.angle + Math.PI / 2;
+                
+                for (let i = 0; i < config.numFieldLinesPerMagnetSide; i++) {
+                    const dist_from_center = (i - Math.floor(config.numFieldLinesPerMagnetSide / 2)) * (magnet.thickness / config.numFieldLinesPerMagnetSide * 0.8);
+                    const startX = n_pole_edge_center_x + dist_from_center * Math.cos(perp_angle_n);
+                    const startY = n_pole_edge_center_y + dist_from_center * Math.sin(perp_angle_n);
+                    traceAndDrawFieldLine({ x: startX, y: startY }, true, magnet.id); 
+                }
+
+                const s_pole_angle = magnet.angle + Math.PI;
+                const s_pole_edge_center_x = magnet.x + (magnet.length / 2 + config.fieldLineSeedOffset) * Math.cos(s_pole_angle);
+                const s_pole_edge_center_y = magnet.y + (magnet.length / 2 + config.fieldLineSeedOffset) * Math.sin(s_pole_angle);
+                const perp_angle_s = s_pole_angle + Math.PI / 2;
+
+                 for (let i = 0; i < config.numFieldLinesPerMagnetSide; i++) {
+                    const dist_from_center = (i - Math.floor(config.numFieldLinesPerMagnetSide / 2)) * (magnet.thickness / config.numFieldLinesPerMagnetSide * 0.8);
+                    const startX = s_pole_edge_center_x + dist_from_center * Math.cos(perp_angle_s);
+                    const startY = s_pole_edge_center_y + dist_from_center * Math.sin(perp_angle_s);
+                    traceAndDrawFieldLine({ x: startX, y: startY }, false, magnet.id); 
+                }
+            });
+        }
+        
+        function traceAndDrawFieldLine(startPoint, tracePositive, originatingMagnetId) {
+            let currentPoint = { x: startPoint.x, y: startPoint.y };
+            const pointsForLine = [{x: startPoint.x, y: startPoint.y}];
+            const stepDirection = tracePositive ? 1 : -1;
+
+            for (let i = 0; i < config.FIXED_FIELD_LINE_MAX_SEGMENTS; i++) {
+                const field = totalMagneticField2D(currentPoint);
+                const fieldMag = Math.sqrt(field.x * field.x + field.y * field.y);
+
+                if (fieldMag < 1e-4) break; // Slightly increased tolerance for weaker fields to stop
+
+                const dx = field.x / fieldMag * config.fieldLineStepSize * stepDirection;
+                const dy = field.y / fieldMag * config.fieldLineStepSize * stepDirection;
+                
+                currentPoint = {x: currentPoint.x + dx, y: currentPoint.y + dy};
+                pointsForLine.push({x: currentPoint.x, y: currentPoint.y});
+
+                let terminate = false;
+                if (currentPoint.x < -config.magnetLength || currentPoint.x > canvas.width + config.magnetLength ||
+                    currentPoint.y < -config.magnetLength || currentPoint.y > canvas.height + config.magnetLength) { // Extended bounds check
+                    terminate = true;
+                }
+
+                if (!terminate) {
+                    for (const mag of visibleMagnets) {
+                        const targetPoleForTerminationAngle = tracePositive ? mag.angle + Math.PI : mag.angle; 
+
+                        const targetPoleTipX = mag.x + (mag.length / 2) * Math.cos(targetPoleForTerminationAngle);
+                        const targetPoleTipY = mag.y + (mag.length / 2) * Math.sin(targetPoleForTerminationAngle);
+                        
+                        // --- ADJUSTED TERMINATION DISTANCE ---
+                        const terminationDistanceSq = Math.pow(mag.thickness / 1.5, 2); // Terminate if closer
+                        const distToTargetPoleTipSq = Math.pow(currentPoint.x - targetPoleTipX, 2) + Math.pow(currentPoint.y - targetPoleTipY, 2);
+
+                        if (distToTargetPoleTipSq < terminationDistanceSq && i > 3) { // Reduced i > 5 to i > 3
+                            pointsForLine.push({ x: targetPoleTipX, y: targetPoleTipY });
+                            terminate = true;
+                            break; 
+                        }
+                    }
+                }
+                if (terminate) break;
+            }
+
+            if (pointsForLine.length > 1) {
+                ctx.beginPath();
+                ctx.moveTo(pointsForLine[0].x, pointsForLine[0].y);
+                for (let k = 1; k < pointsForLine.length; k++) {
+                    ctx.lineTo(pointsForLine[k].x, pointsForLine[k].y);
+                }
+                ctx.strokeStyle = config.fieldLineColor; 
+                ctx.lineWidth = config.fieldLineWidth;
+                ctx.stroke();
+
+                if (config.showFieldArrows) {
+                    for (let k = 0; k < pointsForLine.length -1; k++) { 
+                        if (k > 0 && k % config.fieldArrowFrequency === 0) {
+                             drawArrowhead(pointsForLine[k], pointsForLine[k+1], config.fieldArrowSize);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        function drawArrowhead(p1, p2, size) {
+            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            ctx.save();
+            ctx.translate(p2.x, p2.y);
+            ctx.rotate(angle);
+            ctx.beginPath(); 
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-size, -size / 2.5);
+            ctx.moveTo(0, 0); 
+            ctx.lineTo(-size, size / 2.5);
+            ctx.strokeStyle = config.fieldLineColor; 
+            ctx.lineWidth = config.fieldLineWidth;
+            ctx.stroke(); 
+            ctx.restore();
+        }
+
+        let selectedObject = null;
+        let dragOffsetX = 0;
+        let dragOffsetY = 0;
+
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: evt.clientX - rect.left, y: evt.clientY - rect.top };
+        }
+
+        function isPointInMagnet(point, magnet) {
+            if (!magnet.isVisible) return false;
+            const dx = point.x - magnet.x;
+            const dy = point.y - magnet.y;
+            const localX = dx * Math.cos(-magnet.angle) - dy * Math.sin(-magnet.angle);
+            const localY = dx * Math.sin(-magnet.angle) + dy * Math.cos(-magnet.angle);
+            return Math.abs(localX) <= magnet.length / 2 && Math.abs(localY) <= magnet.thickness / 2;
+        }
+
+        function isPointInCompass(point, c) {
+            const distSq = (point.x - c.x)*(point.x - c.x) + (point.y - c.y)*(point.y - c.y);
+            return distSq <= Math.pow(c.bodyRadius, 2);
+        }
+
+        canvas.addEventListener('mousedown', (evt) => {
+            const mousePos = getMousePos(evt);
+            selectedObject = null; 
+            for (let i = magnets.length - 1; i >= 0; i--) { 
+                if (magnets[i].isVisible && magnets[i].isDraggable && isPointInMagnet(mousePos, magnets[i])) {
+                    selectedObject = magnets[i]; break;
+                }
+            }
+            if (!selectedObject && compass.isDraggable && isPointInCompass(mousePos, compass)) {
+                selectedObject = compass;
+            }
+            if (selectedObject) {
+                dragOffsetX = mousePos.x - selectedObject.x;
+                dragOffsetY = mousePos.y - selectedObject.y;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (evt) => {
+            if (selectedObject) {
+                const mousePos = getMousePos(evt);
+                selectedObject.x = mousePos.x - dragOffsetX;
+                selectedObject.y = mousePos.y - dragOffsetY;
+                updateAndDraw(); 
+            }
+        });
+
+        const onMouseUpOrLeave = () => {
+            if (selectedObject) {
+                selectedObject = null;
+                canvas.style.cursor = 'grab';
+                updateAndDraw();
+            }
+        };
+        canvas.addEventListener('mouseup', onMouseUpOrLeave);
+        canvas.addEventListener('mouseleave', onMouseUpOrLeave);
+
+        const fieldLineDensitySlider = document.getElementById('fieldLineDensity');
+        const fieldLineDensityValue = document.getElementById('fieldLineDensityValue');
+        const showPoleLabelsCheckbox = document.getElementById('showPoleLabels');
+        const showFieldArrowsCheckbox = document.getElementById('showFieldArrows');
+        const showMagnet1Checkbox = document.getElementById('showMagnet1');
+        const showMagnet2Checkbox = document.getElementById('showMagnet2');
+        const resetButton = document.getElementById('resetButton');
+
+        fieldLineDensitySlider.addEventListener('input', (e) => {
+            config.numFieldLinesPerMagnetSide = parseInt(e.target.value);
+            fieldLineDensityValue.textContent = config.numFieldLinesPerMagnetSide;
+            updateAndDraw();
+        });
+        showPoleLabelsCheckbox.addEventListener('change', (e) => {
+            config.showPoleLabels = e.target.checked;
+            updateAndDraw();
+        });
+        showFieldArrowsCheckbox.addEventListener('change', (e) => {
+            config.showFieldArrows = e.target.checked;
+            updateAndDraw();
+        });
+        showMagnet1Checkbox.addEventListener('change', (e) => {
+            config.showMagnet1 = e.target.checked;
+            updateVisibleMagnets();
+            updateAndDraw();
+        });
+        showMagnet2Checkbox.addEventListener('change', (e) => {
+            config.showMagnet2 = e.target.checked;
+            updateVisibleMagnets();
+            updateAndDraw();
+        });
+        resetButton.addEventListener('click', () => {
+            showMagnet1Checkbox.checked = true; 
+            showMagnet2Checkbox.checked = true;
+            config.showMagnet1 = true;
+            config.showMagnet2 = true;
+            
+            initializeObjects(); 
+            updateAndDraw();
+        });
+
+        fieldLineDensitySlider.value = config.numFieldLinesPerMagnetSide;
+        fieldLineDensityValue.textContent = config.numFieldLinesPerMagnetSide;
+        showPoleLabelsCheckbox.checked = config.showPoleLabels;
+        showFieldArrowsCheckbox.checked = config.showFieldArrows;
+        showMagnet1Checkbox.checked = config.showMagnet1;
+        showMagnet2Checkbox.checked = config.showMagnet2;
+
+        function updateCompassOrientation() {
+            const field = totalMagneticField2D(compass); 
+            compass.angle = Math.atan2(field.y, field.x);
+        }
+
+        function updateAndDraw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            updateCompassOrientation();
+            drawFieldLines(); 
+            magnets.forEach(drawMagnet); 
+            drawCompass(compass);
+        }
+        
+        initializeObjects(); 
+        updateAndDraw();    
+
+        window.addEventListener('resize', () => {
+            canvasWidth = Math.min(window.innerWidth - 40, 800);
+            canvasHeight = Math.min(window.innerHeight - 150, 550);
+            canvas.width = canvasWidth;
+            canvas.height = canvasHeight;
+            initialMagnetPositions[0].x = canvasWidth / 2 - 100; initialMagnetPositions[0].y = canvasHeight / 2;
+            initialMagnetPositions[1].x = canvasWidth / 2 + 100; initialMagnetPositions[1].y = canvasHeight / 2;
+            initialCompassPosition.x = canvasWidth / 2; initialCompassPosition.y = canvasHeight / 2 - 100;
+            initializeObjects();
+            updateAndDraw();
+        });
+    </script>
+
+
+            <script>// Write JavaScript here</script>
+        
+    
+</body>
