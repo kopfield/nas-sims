@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leverage Stop-Loss & Liquidation Calculator</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f7f6;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 25px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input[type="number"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 1em;
+        }
+        
+        input[type="number"]:focus,
+        select:focus {
+            border-color: #3498db;
+            outline: none;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+
+        .radio-group label {
+            font-weight: normal;
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        .radio-group input[type="radio"] {
+            margin-right: 8px;
+            accent-color: #3498db;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 25px;
+        }
+
+        button {
+            flex-grow: 1;
+            background-color: #3498db;
+            color: white;
+            padding: 12px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: background-color 0.2s ease;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        button#resetBtn {
+            background-color: #e74c3c;
+        }
+        button#resetBtn:hover {
+            background-color: #c0392b;
+        }
+
+        .results {
+            margin-top: 25px;
+            padding: 15px;
+            background-color: #eaf6ff;
+            border-left: 4px solid #3498db;
+            border-radius: 4px;
+        }
+
+        .results p {
+            margin: 8px 0;
+            font-size: 1.1em;
+        }
+        .results p strong {
+            color: #2c3e50;
+        }
+
+        .error-message {
+            color: #c0392b;
+            background-color: #fdecea;
+            border: 1px solid #e74c3c;
+            padding: 10px;
+            border-radius: 4px;
+            margin-top: 15px;
+            font-size: 0.9em;
+            text-align: center;
+        }
+        
+        .tooltip-icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            background-color: #7f8c8d;
+            color: white;
+            border-radius: 50%;
+            text-align: center;
+            font-size: 12px;
+            line-height: 16px;
+            cursor: help;
+            margin-left: 5px;
+        }
+        .approx-note {
+            font-size: 0.85em;
+            color: #7f8c8d;
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 10px;
+            }
+            .container {
+                padding: 20px;
+            }
+            h1 {
+                font-size: 1.6em;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Stop-Loss & Liquidation Calculator</h1>
+
+        <form id="slCalculatorForm">
+            <div class="form-group">
+                <label>Trade Direction:</label>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="tradeDirection" value="long" checked> Long
+                    </label>
+                    <label>
+                        <input type="radio" name="tradeDirection" value="short"> Short
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="entryPrice">Entry Price ($):</label>
+                <input type="number" id="entryPrice" step="any" placeholder="e.g., 50" required>
+            </div>
+
+            <div class="form-group">
+                <label for="riskPercentage">Stop-Loss Risk % (of Your Capital)
+                    <span class="tooltip-icon" title="Percentage of your own capital for this trade you're willing to lose for your stop-loss (e.g., 2 for 2%).">?</span>
+                </label>
+                <input type="number" id="riskPercentage" step="any" placeholder="e.g., 2" required>
+            </div>
+
+            <div class="form-group">
+                <label for="leverage">Leverage (x):</label>
+                <input type="number" id="leverage" step="any" placeholder="e.g., 10" required>
+            </div>
+
+            <div class="button-group">
+                <button type="button" id="calculateBtn">Calculate</button>
+                <button type="button" id="resetBtn">Reset</button>
+            </div>
+        </form>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+        <div id="resultsDisplay" class="results" style="display: none;">
+            <p><strong>Stop-Loss Price:</strong> <span id="stopLossPriceResult"></span></p>
+            <p><strong>Asset Price Change to SL:</strong> <span id="assetPriceChangeResult"></span></p>
+            <p><strong>Liquidation Price:</strong> <span id="liquidationPriceResult"></span>
+               <span class="approx-note">(Approx. - ignores fees/funding)</span></p>
+            <p id="liquidationAlertNote" style="font-style: italic; color: #e67e22; display: none;"></p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const calculateBtn = document.getElementById('calculateBtn');
+            const resetBtn = document.getElementById('resetBtn');
+            const form = document.getElementById('slCalculatorForm');
+
+            const entryPriceInput = document.getElementById('entryPrice');
+            const riskPercentageInput = document.getElementById('riskPercentage');
+            const leverageInput = document.getElementById('leverage');
+
+            const errorMessageDiv = document.getElementById('errorMessage');
+            const resultsDisplayDiv = document.getElementById('resultsDisplay');
+            const stopLossPriceResultSpan = document.getElementById('stopLossPriceResult');
+            const assetPriceChangeResultSpan = document.getElementById('assetPriceChangeResult');
+            const liquidationPriceResultSpan = document.getElementById('liquidationPriceResult'); // New
+            const liquidationAlertNoteP = document.getElementById('liquidationAlertNote');
+
+            function displayError(message) {
+                errorMessageDiv.textContent = message;
+                errorMessageDiv.style.display = 'block';
+                resultsDisplayDiv.style.display = 'none';
+            }
+
+            function clearError() {
+                errorMessageDiv.textContent = '';
+                errorMessageDiv.style.display = 'none';
+            }
+            
+            function clearResults() {
+                stopLossPriceResultSpan.textContent = '';
+                assetPriceChangeResultSpan.textContent = '';
+                liquidationPriceResultSpan.textContent = ''; // New
+                liquidationAlertNoteP.textContent = '';
+                liquidationAlertNoteP.style.display = 'none';
+                resultsDisplayDiv.style.display = 'none';
+            }
+
+            function calculatePrices() { // Renamed from calculateStopLoss for clarity
+                clearError();
+                liquidationAlertNoteP.style.display = 'none';
+
+                const tradeDirection = document.querySelector('input[name="tradeDirection"]:checked').value;
+                const entryPrice = parseFloat(entryPriceInput.value);
+                const riskPercentage = parseFloat(riskPercentageInput.value); // For stop-loss
+                const leverage = parseFloat(leverageInput.value);
+
+                if (isNaN(entryPrice) || isNaN(riskPercentage) || isNaN(leverage)) {
+                    if (entryPriceInput.value || riskPercentageInput.value || leverageInput.value) {
+                         displayError('Please fill in all fields with valid numbers.');
+                    } else {
+                        clearResults();
+                    }
+                    return;
+                }
+                if (entryPrice <= 0) {
+                    displayError('Entry Price must be a positive number.');
+                    return;
+                }
+                if (riskPercentage <= 0) {
+                    displayError('Stop-Loss Risk Percentage must be a positive number.');
+                    return;
+                }
+                 if (riskPercentage > 100 && leverage > 1) { // Risk % of capital can exceed 100% if leverage allows.
+                                                      // But usually risk % is for capital at risk, not notional.
+                                                      // Let's re-evaluate this constraint for clarity later.
+                                                      // For now, let's assume risk % is on trader's capital.
+                                                      // if riskPercentage > 100, it implies SL is beyond liquidation if leverage > 1.
+                    // No, riskPercentage is of *own* capital, this can be >100 with leverage
+                    // but if riskPercentage/leverage >= 1, then SL is at liquidation or beyond.
+                 }
+                if (leverage < 1) {
+                    displayError('Leverage must be 1 or greater.');
+                    return;
+                }
+
+                // --- Stop-Loss Calculation ---
+                const riskPctDecimal = riskPercentage / 100;
+                const slAssetPriceChangeDecimal = riskPctDecimal / leverage;
+                let stopLossPrice;
+                let slLiquidationMessage = "";
+
+                if (slAssetPriceChangeDecimal >= 1) { // SL risk causes 100%+ asset price move needed
+                    if (tradeDirection === 'long') {
+                        stopLossPrice = 0;
+                        slLiquidationMessage = "Note: Your Stop-Loss is effectively at $0.00 (Liquidation).";
+                    } else { 
+                        stopLossPrice = entryPrice * (1 + slAssetPriceChangeDecimal); // Will be >= 2 * EP
+                        slLiquidationMessage = `Note: Your Stop-Loss (${(slAssetPriceChangeDecimal * 100).toFixed(1)}% asset move) may be far from entry.`;
+                    }
+                    liquidationAlertNoteP.textContent = slLiquidationMessage;
+                    liquidationAlertNoteP.style.display = 'block';
+                } else {
+                    if (tradeDirection === 'long') {
+                        stopLossPrice = entryPrice * (1 - slAssetPriceChangeDecimal);
+                    } else { 
+                        stopLossPrice = entryPrice * (1 + slAssetPriceChangeDecimal);
+                    }
+                }
+                if (tradeDirection === 'long' && stopLossPrice < 0) {
+                    stopLossPrice = 0; 
+                     if (!slLiquidationMessage) { 
+                        liquidationAlertNoteP.textContent = "Note: Calculated Stop-Loss is below $0.00, set to $0.00 (Liquidation).";
+                        liquidationAlertNoteP.style.display = 'block';
+                    }
+                }
+
+                // --- Liquidation Price Calculation (Approximate) ---
+                let liquidationPrice;
+                const liqPriceChangeFactor = 1 / leverage; // e.g., 0.1 for 10x (10% move)
+
+                if (tradeDirection === 'long') {
+                    liquidationPrice = entryPrice * (1 - liqPriceChangeFactor);
+                    if (liquidationPrice < 0) {
+                        liquidationPrice = 0; // Cannot go below zero
+                    }
+                } else { // short
+                    liquidationPrice = entryPrice * (1 + liqPriceChangeFactor);
+                }
+                
+                // --- Formatting and Display ---
+                let decimalPlaces = 2; // Default
+                if (entryPrice !== 0) { // Avoid issues if entryPrice is 0 or NaN during early input
+                    if (entryPrice < 1 && entryPrice > 0) decimalPlaces = Math.max(2, Math.min(8, (entryPrice.toString().split('.')[1] || '').length + 2));
+                    else if (entryPrice < 10) decimalPlaces = 4;
+                    else if (entryPrice < 0.01) decimalPlaces = 6;
+                    else if (entryPrice < 0.0001) decimalPlaces = 8;
+                }
+
+
+                stopLossPriceResultSpan.textContent = `$${stopLossPrice.toFixed(decimalPlaces)}`;
+                assetPriceChangeResultSpan.textContent = `${(slAssetPriceChangeDecimal * 100).toFixed(3)}%`;
+                liquidationPriceResultSpan.textContent = `$${liquidationPrice.toFixed(decimalPlaces)}`;
+                
+                resultsDisplayDiv.style.display = 'block';
+            }
+            
+            function resetForm() {
+                form.reset(); 
+                document.querySelector('input[name="tradeDirection"][value="long"]').checked = true;
+                clearError();
+                clearResults();
+            }
+
+            calculateBtn.addEventListener('click', calculatePrices);
+            resetBtn.addEventListener('click', resetForm);
+
+            [entryPriceInput, riskPercentageInput, leverageInput].forEach(input => {
+                input.addEventListener('input', () => {
+                    if (entryPriceInput.value && riskPercentageInput.value && leverageInput.value &&
+                        !isNaN(parseFloat(entryPriceInput.value)) && 
+                        !isNaN(parseFloat(riskPercentageInput.value)) &&
+                        !isNaN(parseFloat(leverageInput.value)) ) {
+                        calculatePrices();
+                    } else {
+                         clearResults(); 
+                         clearError(); 
+                    }
+                });
+            });
+            document.querySelectorAll('input[name="tradeDirection"]').forEach(radio => {
+                radio.addEventListener('change', () => {
+                     if (entryPriceInput.value && riskPercentageInput.value && leverageInput.value &&
+                        !isNaN(parseFloat(entryPriceInput.value)) && 
+                        !isNaN(parseFloat(riskPercentageInput.value)) &&
+                        !isNaN(parseFloat(leverageInput.value)) ) {
+                        calculatePrices();
+                    }
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>
