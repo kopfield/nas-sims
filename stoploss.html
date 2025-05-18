@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leverage Stop-Loss & Liquidation Calculator</title>
+    <title>Leverage Trade Calculator</title>
     <style>
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -24,7 +24,7 @@
             border-radius: 8px;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
             width: 100%;
-            max-width: 450px;
+            max-width: 480px; /* Slightly wider for more info */
         }
 
         h1 {
@@ -35,18 +35,17 @@
         }
 
         .form-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         label {
             display: block;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
             font-weight: 600;
             color: #555;
         }
 
-        input[type="number"],
-        select {
+        input[type="number"] {
             width: 100%;
             padding: 10px;
             border: 1px solid #ddd;
@@ -55,8 +54,7 @@
             font-size: 1em;
         }
         
-        input[type="number"]:focus,
-        select:focus {
+        input[type="number"]:focus {
             border-color: #3498db;
             outline: none;
             box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
@@ -65,7 +63,7 @@
         .radio-group {
             display: flex;
             gap: 15px;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .radio-group label {
@@ -119,12 +117,21 @@
         }
 
         .results p {
-            margin: 8px 0;
-            font-size: 1.1em;
+            margin: 10px 0; /* Increased spacing */
+            font-size: 1.05em; /* Slightly smaller default */
         }
         .results p strong {
             color: #2c3e50;
+            min-width: 180px; /* Align labels */
+            display: inline-block;
         }
+        .results p span.value { /* Class for result values */
+             font-weight: bold;
+        }
+
+        .profit { color: #2ecc71; }
+        .loss { color: #e74c3c; }
+
 
         .error-message {
             color: #c0392b;
@@ -149,10 +156,17 @@
             line-height: 16px;
             cursor: help;
             margin-left: 5px;
+            vertical-align: middle;
         }
         .approx-note {
             font-size: 0.85em;
             color: #7f8c8d;
+            margin-left: 5px;
+        }
+        hr {
+            border: none;
+            border-top: 1px solid #eee;
+            margin: 15px 0;
         }
 
         @media (max-width: 480px) {
@@ -165,15 +179,18 @@
             h1 {
                 font-size: 1.6em;
             }
+            .results p strong {
+                min-width: 150px;
+            }
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Stop-Loss & Liquidation Calculator</h1>
+        <h1>Leverage Trade Calculator</h1>
 
-        <form id="slCalculatorForm">
+        <form id="tradeCalculatorForm">
             <div class="form-group">
                 <label>Trade Direction:</label>
                 <div class="radio-group">
@@ -192,16 +209,32 @@
             </div>
 
             <div class="form-group">
-                <label for="riskPercentage">Stop-Loss Risk % (of Your Capital)
-                    <span class="tooltip-icon" title="Percentage of your own capital for this trade you're willing to lose for your stop-loss (e.g., 2 for 2%).">?</span>
+                <label for="tradeCapital">Your Trade Capital ($):
+                    <span class="tooltip-icon" title="The amount of your own money you are investing in this specific trade.">?</span>
                 </label>
-                <input type="number" id="riskPercentage" step="any" placeholder="e.g., 2" required>
+                <input type="number" id="tradeCapital" step="any" placeholder="e.g., 100" required>
             </div>
-
+            
             <div class="form-group">
                 <label for="leverage">Leverage (x):</label>
                 <input type="number" id="leverage" step="any" placeholder="e.g., 10" required>
             </div>
+
+            <hr> <!-- Separator for SL specific input -->
+
+            <div class="form-group">
+                <label for="riskPercentage">Stop-Loss Risk % (of Trade Capital)
+                    <span class="tooltip-icon" title="Percentage of your Trade Capital you're willing to lose for your stop-loss (e.g., 2 for 2%).">?</span>
+                </label>
+                <input type="number" id="riskPercentage" step="any" placeholder="e.g., 2" required>
+            </div>
+
+            <hr> <!-- Separator for optional PnL input -->
+             <div class="form-group">
+                <label for="sellPrice">Target Sell Price ($) (Optional):</label>
+                <input type="number" id="sellPrice" step="any" placeholder="e.g., 55">
+            </div>
+
 
             <div class="button-group">
                 <button type="button" id="calculateBtn">Calculate</button>
@@ -210,12 +243,24 @@
         </form>
 
         <div id="errorMessage" class="error-message" style="display: none;"></div>
+        
         <div id="resultsDisplay" class="results" style="display: none;">
-            <p><strong>Stop-Loss Price:</strong> <span id="stopLossPriceResult"></span></p>
-            <p><strong>Asset Price Change to SL:</strong> <span id="assetPriceChangeResult"></span></p>
-            <p><strong>Liquidation Price:</strong> <span id="liquidationPriceResult"></span>
-               <span class="approx-note">(Approx. - ignores fees/funding)</span></p>
-            <p id="liquidationAlertNote" style="font-style: italic; color: #e67e22; display: none;"></p>
+            <p><strong>Position Size (Asset):</strong> <span class="value" id="positionSizeAsset"></span></p>
+            <p><strong>Total Position Value:</strong> <span class="value" id="totalPositionValue"></span></p>
+            <hr>
+            <p><strong>Stop-Loss Price:</strong> <span class="value" id="stopLossPriceResult"></span></p>
+            <p><strong>Amount at Risk (SL):</strong> <span class="value" id="amountAtRiskSL"></span></p>
+            <p><strong>Asset Price Change to SL:</strong> <span class="value" id="assetPriceChangeResult"></span></p>
+            <hr>
+            <p><strong>Liquidation Price:</strong> <span class="value" id="liquidationPriceResult"></span>
+               <span class="approx-note">(Approx.)</span></p>
+            <p id="liquidationAlertNote" style="font-style: italic; color: #e67e22; display: none; font-size:0.9em;"></p>
+            
+            <div id="pnlSection" style="display:none;">
+                <hr>
+                <p><strong>Potential PnL:</strong> <span class="value" id="pnlCurrencyResult"></span></p>
+                <p><strong>PnL % (of Capital):</strong> <span class="value" id="pnlPercentageResult"></span></p>
+            </div>
         </div>
     </div>
 
@@ -223,18 +268,33 @@
         document.addEventListener('DOMContentLoaded', () => {
             const calculateBtn = document.getElementById('calculateBtn');
             const resetBtn = document.getElementById('resetBtn');
-            const form = document.getElementById('slCalculatorForm');
+            const form = document.getElementById('tradeCalculatorForm');
 
+            // Input fields
             const entryPriceInput = document.getElementById('entryPrice');
-            const riskPercentageInput = document.getElementById('riskPercentage');
+            const tradeCapitalInput = document.getElementById('tradeCapital'); // New
             const leverageInput = document.getElementById('leverage');
+            const riskPercentageInput = document.getElementById('riskPercentage');
+            const sellPriceInput = document.getElementById('sellPrice'); // New
 
+            // Output elements
             const errorMessageDiv = document.getElementById('errorMessage');
             const resultsDisplayDiv = document.getElementById('resultsDisplay');
+            
+            const positionSizeAssetSpan = document.getElementById('positionSizeAsset'); // New
+            const totalPositionValueSpan = document.getElementById('totalPositionValue'); // New
+
             const stopLossPriceResultSpan = document.getElementById('stopLossPriceResult');
+            const amountAtRiskSLSpan = document.getElementById('amountAtRiskSL'); // New
             const assetPriceChangeResultSpan = document.getElementById('assetPriceChangeResult');
-            const liquidationPriceResultSpan = document.getElementById('liquidationPriceResult'); // New
+            
+            const liquidationPriceResultSpan = document.getElementById('liquidationPriceResult');
             const liquidationAlertNoteP = document.getElementById('liquidationAlertNote');
+
+            const pnlSectionDiv = document.getElementById('pnlSection'); // New
+            const pnlCurrencyResultSpan = document.getElementById('pnlCurrencyResult'); // New
+            const pnlPercentageResultSpan = document.getElementById('pnlPercentageResult'); // New
+
 
             function displayError(message) {
                 errorMessageDiv.textContent = message;
@@ -248,65 +308,94 @@
             }
             
             function clearResults() {
+                positionSizeAssetSpan.textContent = '';
+                totalPositionValueSpan.textContent = '';
                 stopLossPriceResultSpan.textContent = '';
+                amountAtRiskSLSpan.textContent = '';
                 assetPriceChangeResultSpan.textContent = '';
-                liquidationPriceResultSpan.textContent = ''; // New
+                liquidationPriceResultSpan.textContent = '';
                 liquidationAlertNoteP.textContent = '';
                 liquidationAlertNoteP.style.display = 'none';
+                
+                pnlCurrencyResultSpan.textContent = '';
+                pnlPercentageResultSpan.textContent = '';
+                pnlSectionDiv.style.display = 'none';
+                pnlCurrencyResultSpan.className = 'value'; // Reset PnL color
+                pnlPercentageResultSpan.className = 'value';
+
+
                 resultsDisplayDiv.style.display = 'none';
             }
 
-            function calculatePrices() { // Renamed from calculateStopLoss for clarity
+            function calculateAll() {
                 clearError();
                 liquidationAlertNoteP.style.display = 'none';
+                pnlSectionDiv.style.display = 'none';
+
 
                 const tradeDirection = document.querySelector('input[name="tradeDirection"]:checked').value;
                 const entryPrice = parseFloat(entryPriceInput.value);
-                const riskPercentage = parseFloat(riskPercentageInput.value); // For stop-loss
+                const tradeCapital = parseFloat(tradeCapitalInput.value);
                 const leverage = parseFloat(leverageInput.value);
+                const riskPercentage = parseFloat(riskPercentageInput.value);
+                const sellPrice = parseFloat(sellPriceInput.value); // Can be NaN if empty
 
-                if (isNaN(entryPrice) || isNaN(riskPercentage) || isNaN(leverage)) {
-                    if (entryPriceInput.value || riskPercentageInput.value || leverageInput.value) {
-                         displayError('Please fill in all fields with valid numbers.');
-                    } else {
-                        clearResults();
+                // Core Validations
+                const coreInputs = [entryPrice, tradeCapital, leverage, riskPercentage];
+                const coreInputFields = [entryPriceInput, tradeCapitalInput, leverageInput, riskPercentageInput];
+                let allCoreValid = true;
+
+                for (let i = 0; i < coreInputs.length; i++) {
+                    if (isNaN(coreInputs[i])) {
+                        if (coreInputFields[i].value) { // Only show error if some input exists
+                            displayError('Please fill in all required fields (Entry, Capital, Leverage, Risk %) with valid numbers.');
+                        } else {
+                            clearResults();
+                        }
+                        allCoreValid = false;
+                        return;
                     }
-                    return;
                 }
-                if (entryPrice <= 0) {
-                    displayError('Entry Price must be a positive number.');
-                    return;
+                if (!allCoreValid) return;
+
+
+                if (entryPrice <= 0) { displayError('Entry Price must be positive.'); return; }
+                if (tradeCapital <= 0) { displayError('Trade Capital must be positive.'); return; }
+                if (leverage < 1) { displayError('Leverage must be 1 or greater.'); return; }
+                if (riskPercentage <= 0) { displayError('Stop-Loss Risk % must be positive.'); return; }
+                
+                // --- Determine Decimal Places for Prices & Currency ---
+                let priceDecimalPlaces = 2;
+                if (entryPrice !== 0) {
+                    if (entryPrice < 0.0001) priceDecimalPlaces = 8;
+                    else if (entryPrice < 0.01) priceDecimalPlaces = 6;
+                    else if (entryPrice < 10) priceDecimalPlaces = 4;
                 }
-                if (riskPercentage <= 0) {
-                    displayError('Stop-Loss Risk Percentage must be a positive number.');
-                    return;
-                }
-                 if (riskPercentage > 100 && leverage > 1) { // Risk % of capital can exceed 100% if leverage allows.
-                                                      // But usually risk % is for capital at risk, not notional.
-                                                      // Let's re-evaluate this constraint for clarity later.
-                                                      // For now, let's assume risk % is on trader's capital.
-                                                      // if riskPercentage > 100, it implies SL is beyond liquidation if leverage > 1.
-                    // No, riskPercentage is of *own* capital, this can be >100 with leverage
-                    // but if riskPercentage/leverage >= 1, then SL is at liquidation or beyond.
-                 }
-                if (leverage < 1) {
-                    displayError('Leverage must be 1 or greater.');
-                    return;
-                }
+                const currencyDecimalPlaces = 2; // For dollar amounts
+
+                // --- Position Sizing ---
+                const totalNotionalValue = tradeCapital * leverage;
+                const assetQuantity = totalNotionalValue / entryPrice;
+
+                positionSizeAssetSpan.textContent = `${assetQuantity.toFixed(Math.max(4, priceDecimalPlaces + 2))}`; // Show more precision for asset quantity
+                totalPositionValueSpan.textContent = `$${totalNotionalValue.toFixed(currencyDecimalPlaces)}`;
 
                 // --- Stop-Loss Calculation ---
                 const riskPctDecimal = riskPercentage / 100;
-                const slAssetPriceChangeDecimal = riskPctDecimal / leverage;
+                const amountAtRiskForSL = tradeCapital * riskPctDecimal;
+                const slAssetPriceChangeDecimal = riskPctDecimal / leverage; // This is the % asset price needs to move against you
+                
                 let stopLossPrice;
                 let slLiquidationMessage = "";
 
-                if (slAssetPriceChangeDecimal >= 1) { // SL risk causes 100%+ asset price move needed
+                if (slAssetPriceChangeDecimal >= (1 - (0.005 / leverage))) { // If SL is very close (e.g. 0.5% for maintenance margin) to or beyond 100% / leverage
                     if (tradeDirection === 'long') {
-                        stopLossPrice = 0;
-                        slLiquidationMessage = "Note: Your Stop-Loss is effectively at $0.00 (Liquidation).";
+                        stopLossPrice = entryPrice * (1 - (1/leverage)); // Set to approx liq
+                        if (stopLossPrice < 0) stopLossPrice = 0;
+                        slLiquidationMessage = "Warning: Your Stop-Loss is at/near Liquidation Price.";
                     } else { 
-                        stopLossPrice = entryPrice * (1 + slAssetPriceChangeDecimal); // Will be >= 2 * EP
-                        slLiquidationMessage = `Note: Your Stop-Loss (${(slAssetPriceChangeDecimal * 100).toFixed(1)}% asset move) may be far from entry.`;
+                        stopLossPrice = entryPrice * (1 + (1/leverage)); // Set to approx liq
+                        slLiquidationMessage = "Warning: Your Stop-Loss is at/near Liquidation Price.";
                     }
                     liquidationAlertNoteP.textContent = slLiquidationMessage;
                     liquidationAlertNoteP.style.display = 'block';
@@ -320,37 +409,50 @@
                 if (tradeDirection === 'long' && stopLossPrice < 0) {
                     stopLossPrice = 0; 
                      if (!slLiquidationMessage) { 
-                        liquidationAlertNoteP.textContent = "Note: Calculated Stop-Loss is below $0.00, set to $0.00 (Liquidation).";
+                        liquidationAlertNoteP.textContent = "Note: Stop-Loss set to $0.00 (Liquidation).";
                         liquidationAlertNoteP.style.display = 'block';
                     }
                 }
+                
+                stopLossPriceResultSpan.textContent = `$${stopLossPrice.toFixed(priceDecimalPlaces)}`;
+                amountAtRiskSLSpan.textContent = `$${amountAtRiskForSL.toFixed(currencyDecimalPlaces)}`;
+                assetPriceChangeResultSpan.textContent = `${(slAssetPriceChangeDecimal * 100).toFixed(3)}%`;
 
                 // --- Liquidation Price Calculation (Approximate) ---
                 let liquidationPrice;
-                const liqPriceChangeFactor = 1 / leverage; // e.g., 0.1 for 10x (10% move)
+                const liqPriceChangeFactor = 1 / leverage; 
 
                 if (tradeDirection === 'long') {
                     liquidationPrice = entryPrice * (1 - liqPriceChangeFactor);
-                    if (liquidationPrice < 0) {
-                        liquidationPrice = 0; // Cannot go below zero
-                    }
-                } else { // short
+                    if (liquidationPrice < 0) liquidationPrice = 0;
+                } else { 
                     liquidationPrice = entryPrice * (1 + liqPriceChangeFactor);
                 }
+                liquidationPriceResultSpan.textContent = `$${liquidationPrice.toFixed(priceDecimalPlaces)}`;
                 
-                // --- Formatting and Display ---
-                let decimalPlaces = 2; // Default
-                if (entryPrice !== 0) { // Avoid issues if entryPrice is 0 or NaN during early input
-                    if (entryPrice < 1 && entryPrice > 0) decimalPlaces = Math.max(2, Math.min(8, (entryPrice.toString().split('.')[1] || '').length + 2));
-                    else if (entryPrice < 10) decimalPlaces = 4;
-                    else if (entryPrice < 0.01) decimalPlaces = 6;
-                    else if (entryPrice < 0.0001) decimalPlaces = 8;
+                // --- PnL Calculation (if Sell Price is provided) ---
+                if (!isNaN(sellPrice) && sellPrice > 0) {
+                    if (sellPrice <=0) {
+                        // Don't display PnL if sell price is invalid, but don't throw a blocking error.
+                    } else {
+                        let pnlCurrency;
+                        if (tradeDirection === 'long') {
+                            pnlCurrency = (sellPrice - entryPrice) * assetQuantity;
+                        } else { // short
+                            pnlCurrency = (entryPrice - sellPrice) * assetQuantity;
+                        }
+                        const pnlPercentageOfCapital = (pnlCurrency / tradeCapital) * 100;
+
+                        pnlCurrencyResultSpan.textContent = `$${pnlCurrency.toFixed(currencyDecimalPlaces)}`;
+                        pnlPercentageResultSpan.textContent = `${pnlPercentageOfCapital.toFixed(2)}%`;
+
+                        pnlCurrencyResultSpan.className = `value ${pnlCurrency >= 0 ? 'profit' : 'loss'}`;
+                        pnlPercentageResultSpan.className = `value ${pnlCurrency >= 0 ? 'profit' : 'loss'}`;
+                        pnlSectionDiv.style.display = 'block';
+                    }
+                } else {
+                    pnlSectionDiv.style.display = 'none';
                 }
-
-
-                stopLossPriceResultSpan.textContent = `$${stopLossPrice.toFixed(decimalPlaces)}`;
-                assetPriceChangeResultSpan.textContent = `${(slAssetPriceChangeDecimal * 100).toFixed(3)}%`;
-                liquidationPriceResultSpan.textContent = `$${liquidationPrice.toFixed(decimalPlaces)}`;
                 
                 resultsDisplayDiv.style.display = 'block';
             }
@@ -362,16 +464,20 @@
                 clearResults();
             }
 
-            calculateBtn.addEventListener('click', calculatePrices);
+            calculateBtn.addEventListener('click', calculateAll);
             resetBtn.addEventListener('click', resetForm);
 
-            [entryPriceInput, riskPercentageInput, leverageInput].forEach(input => {
+            // Real-time updates for all relevant inputs
+            const allInputs = [entryPriceInput, tradeCapitalInput, leverageInput, riskPercentageInput, sellPriceInput];
+            allInputs.forEach(input => {
                 input.addEventListener('input', () => {
-                    if (entryPriceInput.value && riskPercentageInput.value && leverageInput.value &&
+                    // Check if core inputs are valid enough to attempt calculation
+                    if (entryPriceInput.value && tradeCapitalInput.value && leverageInput.value && riskPercentageInput.value &&
                         !isNaN(parseFloat(entryPriceInput.value)) && 
-                        !isNaN(parseFloat(riskPercentageInput.value)) &&
-                        !isNaN(parseFloat(leverageInput.value)) ) {
-                        calculatePrices();
+                        !isNaN(parseFloat(tradeCapitalInput.value)) &&
+                        !isNaN(parseFloat(leverageInput.value)) &&
+                        !isNaN(parseFloat(riskPercentageInput.value)) ) {
+                        calculateAll();
                     } else {
                          clearResults(); 
                          clearError(); 
@@ -380,11 +486,12 @@
             });
             document.querySelectorAll('input[name="tradeDirection"]').forEach(radio => {
                 radio.addEventListener('change', () => {
-                     if (entryPriceInput.value && riskPercentageInput.value && leverageInput.value &&
+                     if (entryPriceInput.value && tradeCapitalInput.value && leverageInput.value && riskPercentageInput.value &&
                         !isNaN(parseFloat(entryPriceInput.value)) && 
-                        !isNaN(parseFloat(riskPercentageInput.value)) &&
-                        !isNaN(parseFloat(leverageInput.value)) ) {
-                        calculatePrices();
+                        !isNaN(parseFloat(tradeCapitalInput.value)) &&
+                        !isNaN(parseFloat(leverageInput.value)) &&
+                        !isNaN(parseFloat(riskPercentageInput.value)) ) {
+                        calculateAll();
                     }
                 });
             });
