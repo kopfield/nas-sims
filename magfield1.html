@@ -2,10 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!-- Added user-scalable=no -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>2D Magnetic Field Simulation</title>
     <style>
-        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; background-color: #e0e0e0; display: flex; flex-direction: column; align-items: center; touch-action: none; /* Prevent default touch actions like pinch-zoom on body */ }
+        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; background-color: #e0e0e0; display: flex; flex-direction: column; align-items: center; touch-action: none; }
         #controls {
             padding: 10px;
             background-color: #f0f0f0;
@@ -38,6 +38,11 @@
             margin-right: 5px;
             vertical-align: middle;
         }
+        .control-group input[type="checkbox"]:disabled + label, /* Style for disabled checkbox label */
+        .control-group label input[type="checkbox"]:disabled { /* Style for label containing disabled checkbox */
+            color: #aaa;
+            cursor: not-allowed;
+        }
         .control-group span {
             font-size: 12px;
             min-width: 25px;
@@ -54,7 +59,7 @@
             color: #333;
             font-size: 13px;
         }
-        canvas { display: block; margin-top: 10px; background-color: #f8f8f8; border: 1px solid #ccc; cursor: grab; touch-action: none; /* Prevent default touch actions like pinch-zoom on canvas */ }
+        canvas { display: block; margin-top: 10px; background-color: #f8f8f8; border: 1px solid #ccc; cursor: grab; touch-action: none; }
         canvas:active { cursor: grabbing; }
     </style>
 </head>
@@ -75,13 +80,18 @@
             </div>
         </div>
         <div class="control-group">
-            <label for="showPoleLabels">
-                <input type="checkbox" id="showPoleLabels" checked> Show Pole Labels
+            <label for="showFieldLines">
+                <input type="checkbox" id="showFieldLines" checked> Show Field Lines
             </label>
         </div>
         <div class="control-group">
-            <label for="showFieldArrows">
+            <label for="showFieldArrows" id="showFieldArrowsLabel"> <!-- Added ID for label styling -->
                 <input type="checkbox" id="showFieldArrows" checked> Show Field Arrows
+            </label>
+        </div>
+        <div class="control-group">
+            <label for="showPoleLabels">
+                <input type="checkbox" id="showPoleLabels" checked> Show Pole Labels
             </label>
         </div>
          <div class="control-group">
@@ -114,6 +124,7 @@
             fieldArrowSize: 6,
             fieldArrowFrequency: 25, 
             showPoleLabels: true, 
+            showFieldLines: true, // New setting
             showFieldArrows: true, 
             showMagnet1: true, 
             showMagnet2: true, 
@@ -295,6 +306,8 @@
         }
         
         function drawFieldLines() {
+            if (!config.showFieldLines) return; // Skip drawing if field lines are hidden
+
             visibleMagnets.forEach(magnet => { 
                 const n_pole_edge_center_x = magnet.x + (magnet.length / 2 + config.fieldLineSeedOffset) * Math.cos(magnet.angle);
                 const n_pole_edge_center_y = magnet.y + (magnet.length / 2 + config.fieldLineSeedOffset) * Math.sin(magnet.angle);
@@ -374,7 +387,8 @@
                 ctx.lineWidth = config.fieldLineWidth;
                 ctx.stroke();
 
-                if (config.showFieldArrows) {
+                // Only show field arrows if both field lines AND field arrows are enabled
+                if (config.showFieldLines && config.showFieldArrows) { 
                     for (let k = 0; k < pointsForLine.length -1; k++) { 
                         if (k > 0 && k % config.fieldArrowFrequency === 0) {
                              drawArrowhead(pointsForLine[k], pointsForLine[k+1], config.fieldArrowSize);
@@ -401,23 +415,21 @@
             ctx.restore();
         }
 
-        // --- Interaction ---
         let selectedObject = null;
         let dragOffsetX = 0;
         let dragOffsetY = 0;
-        let isDragging = false; // Flag to track dragging state for touch
+        let isDragging = false; 
 
-        // MODIFIED: Combined function to get event position for mouse and touch
         function getEventPosition(evt) {
             const rect = canvas.getBoundingClientRect();
             let clientX, clientY;
-            if (evt.touches && evt.touches.length > 0) { // Touch event
+            if (evt.touches && evt.touches.length > 0) { 
                 clientX = evt.touches[0].clientX;
                 clientY = evt.touches[0].clientY;
-            } else if (evt.changedTouches && evt.changedTouches.length > 0) { // Touchend event
+            } else if (evt.changedTouches && evt.changedTouches.length > 0) { 
                  clientX = evt.changedTouches[0].clientX;
                  clientY = evt.changedTouches[0].clientY;
-            } else { // Mouse event
+            } else { 
                 clientX = evt.clientX;
                 clientY = evt.clientY;
             }
@@ -428,7 +440,6 @@
         }
 
         function handleInteractionStart(evt) {
-            // evt.preventDefault(); // Prevent scrolling/zooming on touch start if needed, test carefully
             const eventPos = getEventPosition(evt);
             selectedObject = null; 
             for (let i = magnets.length - 1; i >= 0; i--) { 
@@ -449,7 +460,7 @@
 
         function handleInteractionMove(evt) {
             if (isDragging && selectedObject) {
-                evt.preventDefault(); // Crucial for smooth dragging on touch devices
+                evt.preventDefault(); 
                 const eventPos = getEventPosition(evt);
                 selectedObject.x = eventPos.x - dragOffsetX;
                 selectedObject.y = eventPos.y - dragOffsetY;
@@ -459,25 +470,21 @@
 
         function handleInteractionEnd(evt) {
             if (isDragging) {
-                // const eventPos = getEventPosition(evt); // Not always needed for touchend logic
                 isDragging = false;
                 selectedObject = null;
                 canvas.style.cursor = 'grab';
-                updateAndDraw(); // Final update
+                updateAndDraw(); 
             }
         }
 
-        // Mouse event listeners
         canvas.addEventListener('mousedown', handleInteractionStart);
         canvas.addEventListener('mousemove', handleInteractionMove);
         canvas.addEventListener('mouseup', handleInteractionEnd);
-        canvas.addEventListener('mouseleave', handleInteractionEnd); // Handle mouse leaving canvas
-
-        // Touch event listeners
-        canvas.addEventListener('touchstart', handleInteractionStart, { passive: false }); // passive:false if preventDefault is used
-        canvas.addEventListener('touchmove', handleInteractionMove, { passive: false });  // passive:false if preventDefault is used
+        canvas.addEventListener('mouseleave', handleInteractionEnd); 
+        canvas.addEventListener('touchstart', handleInteractionStart, { passive: false }); 
+        canvas.addEventListener('touchmove', handleInteractionMove, { passive: false });  
         canvas.addEventListener('touchend', handleInteractionEnd);
-        canvas.addEventListener('touchcancel', handleInteractionEnd); // Handle touch cancel
+        canvas.addEventListener('touchcancel', handleInteractionEnd); 
 
 
         function isPointInMagnet(point, magnet) {
@@ -493,16 +500,30 @@
             const distSq = (point.x - c.x)*(point.x - c.x) + (point.y - c.y)*(point.y - c.y);
             return distSq <= Math.pow(c.bodyRadius, 2);
         }
-        // --- End Interaction ---
-
 
         const fieldLineDensitySlider = document.getElementById('fieldLineDensity');
         const fieldLineDensityValue = document.getElementById('fieldLineDensityValue');
         const showPoleLabelsCheckbox = document.getElementById('showPoleLabels');
+        const showFieldLinesCheckbox = document.getElementById('showFieldLines'); // New checkbox
         const showFieldArrowsCheckbox = document.getElementById('showFieldArrows');
+        const showFieldArrowsLabel = document.getElementById('showFieldArrowsLabel'); // Label for styling
         const showMagnet1Checkbox = document.getElementById('showMagnet1');
         const showMagnet2Checkbox = document.getElementById('showMagnet2');
         const resetButton = document.getElementById('resetButton');
+
+        function updateShowFieldArrowsCheckboxState() {
+            if (config.showFieldLines) {
+                showFieldArrowsCheckbox.disabled = false;
+                showFieldArrowsLabel.style.color = ''; // Reset color
+                showFieldArrowsLabel.style.cursor = '';
+            } else {
+                showFieldArrowsCheckbox.disabled = true;
+                showFieldArrowsCheckbox.checked = false; // Uncheck it if lines are hidden
+                config.showFieldArrows = false;
+                showFieldArrowsLabel.style.color = '#aaa'; // Style for disabled
+                showFieldArrowsLabel.style.cursor = 'not-allowed';
+            }
+        }
 
         fieldLineDensitySlider.addEventListener('input', (e) => {
             config.numFieldLinesPerMagnetSide = parseInt(e.target.value);
@@ -511,6 +532,11 @@
         });
         showPoleLabelsCheckbox.addEventListener('change', (e) => {
             config.showPoleLabels = e.target.checked;
+            updateAndDraw();
+        });
+        showFieldLinesCheckbox.addEventListener('change', (e) => { // Listener for new checkbox
+            config.showFieldLines = e.target.checked;
+            updateShowFieldArrowsCheckboxState(); // Update dependent checkbox
             updateAndDraw();
         });
         showFieldArrowsCheckbox.addEventListener('change', (e) => {
@@ -533,6 +559,18 @@
             config.showMagnet1 = true;
             config.showMagnet2 = true;
             
+            // Reset other checkboxes to their default config values
+            showFieldLinesCheckbox.checked = true; config.showFieldLines = true;
+            updateShowFieldArrowsCheckboxState(); // Update based on field lines state
+            showFieldArrowsCheckbox.checked = true; config.showFieldArrows = true; // Then set arrows
+            if (!config.showFieldLines) { // If lines are default off, arrows must be off
+                 showFieldArrowsCheckbox.checked = false; config.showFieldArrows = false;
+            }
+             updateShowFieldArrowsCheckboxState(); // Final ensure state is correct
+
+            showPoleLabelsCheckbox.checked = true; config.showPoleLabels = true;
+
+
             initializeObjects(); 
             updateAndDraw();
         });
@@ -540,7 +578,9 @@
         fieldLineDensitySlider.value = config.numFieldLinesPerMagnetSide;
         fieldLineDensityValue.textContent = config.numFieldLinesPerMagnetSide;
         showPoleLabelsCheckbox.checked = config.showPoleLabels;
+        showFieldLinesCheckbox.checked = config.showFieldLines; // Init new checkbox
         showFieldArrowsCheckbox.checked = config.showFieldArrows;
+        updateShowFieldArrowsCheckboxState(); // Initial state for field arrows checkbox
         showMagnet1Checkbox.checked = config.showMagnet1;
         showMagnet2Checkbox.checked = config.showMagnet2;
 
@@ -562,8 +602,7 @@
 
         window.addEventListener('resize', () => {
             canvasWidth = Math.min(window.innerWidth - 40, 800);
-            canvasHeight = Math.min(window.innerHeight - 150, 550); // Adjusted for controls and info
-            // Recalculate initial positions based on new canvas size
+            canvasHeight = Math.min(window.innerHeight - 150, 550); 
             initialMagnetPositions[0].x = canvasWidth / 2 - Math.min(100, canvasWidth * 0.2); 
             initialMagnetPositions[0].y = canvasHeight / 2;
             initialMagnetPositions[1].x = canvasWidth / 2 + Math.min(100, canvasWidth * 0.2); 
@@ -574,7 +613,7 @@
             canvas.width = canvasWidth;
             canvas.height = canvasHeight;
             
-            initializeObjects(); // Re-initialize objects with new positions
+            initializeObjects(); 
             updateAndDraw();
         });
     </script>
