@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Wave Simulation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+        .container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 95%;
+            max-width: 900px;
+            margin: auto;
+        }
+        h1 {
+            text-align: center;
+            color: #0d47a1;
+            margin-top: 0;
+        }
+        .simulation-area {
+            width: 100%;
+            margin: 20px 0;
+        }
+        canvas {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            height: auto;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+        input[type="range"] {
+            width: 100%;
+            margin: 0;
+        }
+        .stats {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-weight: 500;
+            color: #0d47a1;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            font-size: 1em;
+        }
+        #startBtn { background-color: #28a745; color: white; }
+        #startBtn:hover { background-color: #218838; }
+        #pauseBtn { background-color: #ffc107; color: #212529; }
+        #pauseBtn:hover { background-color: #e0a800; }
+        #resetBtn { background-color: #dc3545; color: white; }
+        #resetBtn:hover { background-color: #c82333; }
+        button:disabled {
+            background-color: #e9ecef;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        .info-panel {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            color: #0d47a1;
+        }
+        .info-panel p {
+            line-height: 1.6;
+            color: #495057;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Interactive Wave Simulation</h1>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="amplitudeSlider">Amplitude (A): <span id="amplitudeValue">0.5</span> m</label>
+            <input type="range" id="amplitudeSlider" min="0.1" max="1.0" step="0.05" value="0.5">
+        </div>
+        <div class="control-group">
+            <label for="wavelengthSlider">Wavelength (λ): <span id="wavelengthValue">2.0</span> m</label>
+            <input type="range" id="wavelengthSlider" min="0.5" max="5.0" step="0.1" value="2.0">
+        </div>
+        <div class="control-group">
+            <label for="frequencySlider">Frequency (f): <span id="frequencyValue">1.0</span> Hz</label>
+            <input type="range" id="frequencySlider" min="0.2" max="3.0" step="0.1" value="1.0">
+        </div>
+    </div>
+
+    <div class="stats">
+        Wave Speed (v = f * λ): <span id="waveSpeedValue">2.00</span> m/s
+    </div>
+
+    <div class="buttons">
+        <button id="startBtn">Start</button>
+        <button id="pauseBtn" disabled>Pause</button>
+        <button id="resetBtn">Reset</button>
+    </div>
+
+    <div class="simulation-area">
+        <canvas id="waveCanvas" width="850" height="400"></canvas>
+    </div>
+
+    <div class="info-panel">
+        <h3>Understanding Wave Properties</h3>
+        <p><strong>Amplitude (A):</strong> The maximum displacement or distance moved by a point on a vibrating body or wave measured from its equilibrium position. It corresponds to the "height" of the wave.</p>
+        <p><strong>Wavelength (λ):</strong> The spatial period of the periodic wave – the distance over which the wave's shape repeats. It is the distance between consecutive corresponding points of the same phase, such as two adjacent crests or troughs.</p>
+        <p><strong>Frequency (f):</strong> The number of occurrences of a repeating event per unit of time. For waves, it is the number of crests (or any other point of the wave) that pass a point per unit of time. It is measured in Hertz (Hz).</p>
+        <p><strong>Wave Speed (v):</strong> The speed at which a wave propagates. It is related to frequency and wavelength by the fundamental wave equation: <strong>v = f × λ</strong>.</p>
+    </div>
+</div>
+
+<script>
+    window.onload = function() {
+        // DOM Elements
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        const amplitudeSlider = document.getElementById('amplitudeSlider');
+        const wavelengthSlider = document.getElementById('wavelengthSlider');
+        const frequencySlider = document.getElementById('frequencySlider');
+        const amplitudeValueSpan = document.getElementById('amplitudeValue');
+        const wavelengthValueSpan = document.getElementById('wavelengthValue');
+        const frequencyValueSpan = document.getElementById('frequencyValue');
+        const waveSpeedValueSpan = document.getElementById('waveSpeedValue');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        // Simulation Parameters
+        let amplitude = parseFloat(amplitudeSlider.value);
+        let wavelength = parseFloat(wavelengthSlider.value);
+        let frequency = parseFloat(frequencySlider.value);
+        let time = 0;
+        let animationId;
+        let isRunning = false;
+
+        // Canvas properties
+        const PIXELS_PER_METER = 80;
+        const centerY = canvas.height / 2;
+
+        function updateParameters() {
+            amplitude = parseFloat(amplitudeSlider.value);
+            wavelength = parseFloat(wavelengthSlider.value);
+            frequency = parseFloat(frequencySlider.value);
+
+            amplitudeValueSpan.textContent = amplitude.toFixed(2);
+            wavelengthValueSpan.textContent = wavelength.toFixed(1);
+            frequencyValueSpan.textContent = frequency.toFixed(1);
+
+            const waveSpeed = frequency * wavelength;
+            waveSpeedValueSpan.textContent = waveSpeed.toFixed(2);
+
+            if (!isRunning) {
+                drawWave();
+            }
+        }
+
+        function drawWave() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw axis
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(canvas.width, centerY);
+            ctx.strokeStyle = '#ccc';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Wave properties
+            const k = 2 * Math.PI / (wavelength * PIXELS_PER_METER); // Wavenumber
+            const omega = 2 * Math.PI * frequency; // Angular frequency
+
+            // Draw the wave
+            ctx.beginPath();
+            ctx.strokeStyle = '#0d47a1';
+            ctx.lineWidth = 3;
+
+            for (let x = 0; x < canvas.width; x++) {
+                const y = amplitude * Math.sin(k * x - omega * time);
+                const screenY = centerY - y * PIXELS_PER_METER;
+                if (x === 0) {
+                    ctx.moveTo(x, screenY);
+                } else {
+                    ctx.lineTo(x, screenY);
+                }
+            }
+            ctx.stroke();
+
+            // Draw Amplitude and Wavelength indicators
+            drawIndicators();
+        }
+
+        function drawIndicators() {
+            // Amplitude indicator
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.moveTo(50, centerY - amplitude * PIXELS_PER_METER);
+            ctx.lineTo(canvas.width - 50, centerY - amplitude * PIXELS_PER_METER);
+            ctx.moveTo(50, centerY + amplitude * PIXELS_PER_METER);
+            ctx.lineTo(canvas.width - 50, centerY + amplitude * PIXELS_PER_METER);
+            ctx.strokeStyle = 'rgba(220, 53, 69, 0.7)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = 'rgba(220, 53, 69, 1)';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+            ctx.fillText('Amplitude', 55, centerY - amplitude * PIXELS_PER_METER - 5);
+
+            // Wavelength indicator
+            const firstCrestX = findFirstCrestX();
+            if (firstCrestX !== null) {
+                const secondCrestX = firstCrestX + wavelength * PIXELS_PER_METER;
+                if (secondCrestX < canvas.width) {
+                    const indicatorY = centerY + amplitude * PIXELS_PER_METER + 25;
+                    ctx.beginPath();
+                    ctx.moveTo(firstCrestX, indicatorY - 5);
+                    ctx.lineTo(firstCrestX, indicatorY + 5);
+                    ctx.moveTo(secondCrestX, indicatorY - 5);
+                    ctx.lineTo(secondCrestX, indicatorY + 5);
+                    ctx.moveTo(firstCrestX, indicatorY);
+                    ctx.lineTo(secondCrestX, indicatorY);
+                    ctx.strokeStyle = 'rgba(25, 135, 84, 1)';
+                    ctx.stroke();
+                    ctx.fillStyle = 'rgba(25, 135, 84, 1)';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Wavelength (λ)', (firstCrestX + secondCrestX) / 2, indicatorY - 8);
+                }
+            }
+        }
+
+        function findFirstCrestX() {
+            const k = 2 * Math.PI / (wavelength * PIXELS_PER_METER);
+            const omega = 2 * Math.PI * frequency;
+            // We want sin(k*x - omega*t) = 1, so k*x - omega*t = PI/2 + 2*n*PI
+            // k*x = omega*t + PI/2 + 2*n*PI
+            // x = (omega*t + PI/2 + 2*n*PI) / k
+            const phase = omega * time;
+            let n = Math.ceil((k * 0 - phase - Math.PI / 2) / (2 * Math.PI));
+            const x = (phase + Math.PI / 2 + 2 * n * Math.PI) / k;
+            return x < canvas.width ? x : null;
+        }
+
+        function animate(timestamp) {
+            if (!isRunning) return;
+            time += 1 / 60; // Simple time increment
+            drawWave();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function startSimulation() {
+            if (isRunning) return;
+            isRunning = true;
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function pauseSimulation() {
+            if (!isRunning) return;
+            isRunning = false;
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+            cancelAnimationFrame(animationId);
+        }
+
+        function resetSimulation() {
+            pauseSimulation();
+            time = 0;
+            drawWave();
+        }
+
+        // Event Listeners
+        amplitudeSlider.addEventListener('input', updateParameters);
+        wavelengthSlider.addEventListener('input', updateParameters);
+        frequencySlider.addEventListener('input', updateParameters);
+        startBtn.addEventListener('click', startSimulation);
+        pauseBtn.addEventListener('click', pauseSimulation);
+        resetBtn.addEventListener('click', resetSimulation);
+
+        // Initial Setup
+        updateParameters();
+    };
+</script>
+
+</body>
+</html>
