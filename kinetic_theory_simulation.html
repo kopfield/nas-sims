@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinetic Theory of Matter Simulation</title>
+    <style>
+        /* General styles */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            color: #ecf0f1;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            color: #bdc3c7;
+        }
+
+        .main-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            width: 100%;
+            max-width: 1200px;
+            justify-content: center;
+        }
+
+        .simulation-panel, .controls-panel {
+            background-color: #34495e;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        .simulation-panel {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-width: 300px;
+        }
+
+        canvas {
+            background-color: #ecf0f1;
+            border-radius: 5px;
+            max-height: 500px;
+        }
+
+        .controls-panel {
+            width: 100%;
+            max-width: 350px;
+        }
+
+        h2 {
+            margin-top: 0;
+            border-bottom: 2px solid #2c3e50;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .control-group, .data-group, .button-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex-grow: 1;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        #startPauseBtn {
+            background-color: #27ae60;
+            color: white;
+        }
+        #startPauseBtn:hover {
+            background-color: #229954;
+        }
+
+        #resetBtn {
+            background-color: #e74c3c;
+            color: white;
+        }
+        #resetBtn:hover {
+            background-color: #c0392b;
+        }
+
+        .data-group p {
+            background-color: #2c3e50;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .data-group span {
+            font-weight: normal;
+            color: #3498db;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 900px) {
+            .main-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            .controls-panel {
+                max-width: 600px; /* Match canvas width */
+            }
+            .simulation-panel {
+                width: 100%;
+                max-width: 600px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Kinetic Theory of Matter</h1>
+        <p>An interactive simulation of gas particles in a container.</p>
+    </div>
+
+    <div class="main-container">
+        <div class="simulation-panel">
+            <canvas id="simulationCanvas"></canvas>
+        </div>
+        <div class="controls-panel">
+            <h2>Controls</h2>
+            <div class="control-group">
+                <label for="tempSlider">Temperature: <span id="tempValue">300</span> </label>
+                <input type="range" id="tempSlider" min="10" max="1000" value="300">
+            </div>
+            <div class="control-group">
+                <label for="particlesSlider">Number of Particles: <span id="particlesValue">100</span></label>
+                <input type="range" id="particlesSlider" min="10" max="500" value="100" step="10">
+            </div>
+            <div class="control-group">
+                <label for="massSlider">Particle Mass: <span id="massValue">5</span></label>
+                <input type="range" id="massSlider" min="1" max="50" value="5">
+            </div>
+            <div class="control-group">
+                <label for="volumeSlider">Volume (Width): <span id="volumeValue">600</span></label>
+                <input type="range" id="volumeSlider" min="300" max="800" value="600">
+            </div>
+            <div class="button-group">
+                <button id="startPauseBtn">Pause</button>
+                <button id="resetBtn">Reset</button>
+            </div>
+            
+            <h2>Data Readout</h2>
+            <div class="data-group">
+                <p><strong>Pressure:</strong> <span id="pressureValue">0.00</span> kPa</p>
+                <p><strong>Avg. KE:</strong> <span id="keValue">0.00</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const tempSlider = document.getElementById('tempSlider');
+        const tempValue = document.getElementById('tempValue');
+        const particlesSlider = document.getElementById('particlesSlider');
+        const particlesValue = document.getElementById('particlesValue');
+        const massSlider = document.getElementById('massSlider');
+        const massValue = document.getElementById('massValue');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeValue = document.getElementById('volumeValue');
+
+        const startPauseBtn = document.getElementById('startPauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        const pressureValue = document.getElementById('pressureValue');
+        const keValue = document.getElementById('keValue');
+
+        // --- Simulation State ---
+        let particles = [];
+        let isRunning = true;
+        let animationFrameId;
+
+        // --- Physics & Simulation Constants ---
+        const SCALING_FACTOR = 0.01; // Scales temperature to velocity
+        const PRESSURE_CALC_INTERVAL = 1000; // ms
+        const PRESSURE_SCALING = 400; // To get reasonable kPa values
+
+        let totalMomentumChange = 0;
+        let lastPressureCalcTime = 0;
+
+        // --- Particle Class ---
+        class Particle {
+            constructor(x, y, radius, mass, color) {
+                this.x = x;
+                this.y = y;
+                this.radius = radius;
+                this.mass = mass;
+                this.color = color;
+                
+                const speed = Math.sqrt(2 * parseFloat(tempSlider.value) * SCALING_FACTOR / this.mass);
+                const angle = Math.random() * 2 * Math.PI;
+                this.vx = speed * Math.cos(angle);
+                this.vy = speed * Math.sin(angle);
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wall collisions
+                if (this.x - this.radius < 0) {
+                    this.x = this.radius;
+                    totalMomentumChange += 2 * this.mass * Math.abs(this.vx);
+                    this.vx *= -1;
+                } else if (this.x + this.radius > canvas.width) {
+                    this.x = canvas.width - this.radius;
+                    totalMomentumChange += 2 * this.mass * Math.abs(this.vx);
+                    this.vx *= -1;
+                }
+
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    totalMomentumChange += 2 * this.mass * Math.abs(this.vy);
+                    this.vy *= -1;
+                } else if (this.y + this.radius > canvas.height) {
+                    this.y = canvas.height - this.radius;
+                    totalMomentumChange += 2 * this.mass * Math.abs(this.vy);
+                    this.vy *= -1;
+                }
+            }
+        }
+
+        // --- Collision Resolution ---
+        function resolveCollision(p1, p2) {
+            const xVelDiff = p1.vx - p2.vx;
+            const yVelDiff = p1.vy - p2.vy;
+            const xDist = p2.x - p1.x;
+            const yDist = p2.y - p1.y;
+
+            if (xVelDiff * xDist + yVelDiff * yDist >= 0) {
+                const angle = -Math.atan2(yDist, xDist);
+                const m1 = p1.mass;
+                const m2 = p2.mass;
+
+                const u1 = rotate({x: p1.vx, y: p1.vy}, angle);
+                const u2 = rotate({x: p2.vx, y: p2.vy}, angle);
+
+                const v1 = { x: u1.x * (m1 - m2) / (m1 + m2) + u2.x * 2 * m2 / (m1 + m2), y: u1.y };
+                const v2 = { x: u2.x * (m2 - m1) / (m1 + m2) + u1.x * 2 * m1 / (m1 + m2), y: u2.y };
+
+                const vFinal1 = rotate(v1, -angle);
+                const vFinal2 = rotate(v2, -angle);
+
+                p1.vx = vFinal1.x;
+                p1.vy = vFinal1.y;
+                p2.vx = vFinal2.x;
+                p2.vy = vFinal2.y;
+            }
+        }
+
+        function rotate(velocity, angle) {
+            return {
+                x: velocity.x * Math.cos(angle) - velocity.y * Math.sin(angle),
+                y: velocity.x * Math.sin(angle) + velocity.y * Math.cos(angle)
+            };
+        }
+
+        // --- Main Simulation Functions ---
+        function setup() {
+            canvas.width = parseInt(volumeSlider.value);
+            canvas.height = 500;
+
+            tempValue.textContent = `${tempSlider.value} K`;
+            particlesValue.textContent = particlesSlider.value;
+            massValue.textContent = `${massSlider.value} amu`;
+            volumeValue.textContent = `${canvas.width} px`;
+
+            particles = [];
+            const numParticles = parseInt(particlesSlider.value);
+            const mass = parseFloat(massSlider.value);
+            // Radius now depends on mass. Using sqrt for a non-linear relationship.
+            const radius = 2 + Math.sqrt(mass);
+
+            for (let i = 0; i < numParticles; i++) {
+                let x, y, overlapping;
+                do {
+                    x = Math.random() * (canvas.width - 2 * radius) + radius;
+                    y = Math.random() * (canvas.height - 2 * radius) + radius;
+                    overlapping = false;
+                    for (let j = 0; j < particles.length; j++) {
+                        const other = particles[j];
+                        if (Math.hypot(x - other.x, y - other.y) < radius + other.radius) {
+                            overlapping = true;
+                            break;
+                        }
+                    }
+                } while (overlapping);
+                particles.push(new Particle(x, y, radius, mass, '#3498db'));
+            }
+            
+            totalMomentumChange = 0;
+            lastPressureCalcTime = performance.now();
+        }
+
+        function animate(currentTime) {
+            if (isRunning) {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                let totalKE = 0;
+
+                particles.forEach(p => {
+                    p.update();
+                    p.draw();
+                    totalKE += 0.5 * p.mass * (p.vx * p.vx + p.vy * p.vy);
+                });
+
+                for (let i = 0; i < particles.length; i++) {
+                    for (let j = i + 1; j < particles.length; j++) {
+                        const p1 = particles[i];
+                        const p2 = particles[j];
+                        if (Math.hypot(p1.x - p2.x, p1.y - p2.y) < p1.radius + p2.radius) {
+                            resolveCollision(p1, p2);
+                        }
+                    }
+                }
+                
+                const avgKE = particles.length > 0 ? totalKE / particles.length : 0;
+                keValue.textContent = avgKE.toFixed(2);
+
+                const timeSinceLastCalc = currentTime - lastPressureCalcTime;
+                if (timeSinceLastCalc >= PRESSURE_CALC_INTERVAL) {
+                    const perimeter = 2 * (canvas.width + canvas.height);
+                    const pressure = (totalMomentumChange / (timeSinceLastCalc / 1000)) / perimeter;
+                    pressureValue.textContent = (pressure * PRESSURE_SCALING).toFixed(2);
+                    
+                    totalMomentumChange = 0;
+                    lastPressureCalcTime = currentTime;
+                }
+            }
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Control Handlers ---
+        function handleStartPause() {
+            isRunning = !isRunning;
+            startPauseBtn.textContent = isRunning ? 'Pause' : 'Start';
+            if (isRunning) {
+                lastPressureCalcTime = performance.now();
+                requestAnimationFrame(animate);
+            } else {
+                cancelAnimationFrame(animationFrameId);
+            }
+        }
+
+        function handleReset() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            setup();
+            isRunning = true;
+            startPauseBtn.textContent = 'Pause';
+            requestAnimationFrame(animate);
+        }
+
+        function handleTempChange(e) {
+            const newTemp = parseFloat(e.target.value);
+            const oldTemp = particles.length > 0 ? (parseFloat(keValue.textContent) / (SCALING_FACTOR)) : newTemp;
+            const ratio = Math.sqrt(newTemp / oldTemp);
+
+            if (isFinite(ratio)) {
+                particles.forEach(p => {
+                    p.vx *= ratio;
+                    p.vy *= ratio;
+                });
+            }
+        }
+
+        function handleVolumeChange(e) {
+            const newWidth = parseInt(e.target.value);
+            canvas.width = newWidth;
+            volumeValue.textContent = `${newWidth} px`;
+        }
+
+        // --- Event Listeners ---
+        startPauseBtn.addEventListener('click', handleStartPause);
+        resetBtn.addEventListener('click', handleReset);
+
+        tempSlider.addEventListener('input', (e) => tempValue.textContent = `${e.target.value} K`);
+        tempSlider.addEventListener('change', handleTempChange);
+
+        particlesSlider.addEventListener('input', (e) => particlesValue.textContent = e.target.value);
+        particlesSlider.addEventListener('change', handleReset);
+
+        massSlider.addEventListener('input', (e) => massValue.textContent = `${e.target.value} amu`);
+        massSlider.addEventListener('change', handleReset);
+
+        volumeSlider.addEventListener('input', handleVolumeChange);
+
+        // --- Initial Setup ---
+        window.addEventListener('load', () => {
+            setup();
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>
