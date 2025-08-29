@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Radiation Shielding Simulation</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --primary-color: #16213e;
+            --secondary-color: #0f3460;
+            --accent-color: #e94560;
+            --text-color: #dcdcdc;
+            --highlight-color: #53d8fb;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            padding: 0 20px;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            color: var(--highlight-color);
+            text-shadow: 0 0 10px var(--highlight-color);
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.8;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 30px;
+            background: var(--primary-color);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--secondary-color);
+            width: 95%;
+            max-width: 1400px;
+        }
+
+        .simulation-section, .controls-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .simulation-section {
+            flex-grow: 2;
+        }
+
+        .section-title {
+            font-size: 1.6em;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: var(--highlight-color);
+            text-align: center;
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+        }
+
+        canvas {
+            border: 2px solid var(--secondary-color);
+            border-radius: 10px;
+            background: #000;
+            width: 100%;
+            height: auto;
+        }
+
+        .sim-info {
+            margin-top: 15px;
+            text-align: center;
+            background: var(--secondary-color);
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        .control-group {
+            background: var(--secondary-color);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid var(--bg-color);
+            background: var(--primary-color);
+            color: var(--text-color);
+            font-size: 1em;
+        }
+
+        input[type="range"] {
+            padding: 0;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            font-size: 1.1em;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #ff6b81;
+            transform: translateY(-2px);
+        }
+        
+        #resetBtn {
+            background-color: var(--highlight-color);
+        }
+        #resetBtn:hover {
+            background-color: #72e2ff;
+        }
+
+        .info-box {
+            background: var(--secondary-color);
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: auto; /* Pushes it to the bottom */
+            border-left: 4px solid var(--accent-color);
+        }
+
+        .info-box h3 {
+            margin-top: 0;
+            color: var(--highlight-color);
+            font-size: 1.3em;
+        }
+
+        .info-box p {
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+
+        .footer {
+            margin-top: 30px;
+            text-align: center;
+            opacity: 0.7;
+        }
+
+        @media (max-width: 1024px) {
+            .main-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>☢️ Radiation Shielding Simulator</h1>
+        <p>Learn how different materials block different types of radiation</p>
+    </div>
+
+    <div class="main-container">
+        <div class="simulation-section">
+            <h2 class="section-title">Simulation</h2>
+            <canvas id="simulationCanvas" width="900" height="450"></canvas>
+            <div class="sim-info">
+                <div id="stats">Particles Emitted: 0 | Particles Detected: 0 | Blocked: 0.00%</div>
+            </div>
+        </div>
+
+        <div class="controls-section">
+            <h2 class="section-title">Controls & Info</h2>
+            <div class="control-group">
+                <label for="radiationType">Radiation Source:</label>
+                <select id="radiationType">
+                    <option value="alpha">Alpha (α)</option>
+                    <option value="beta">Beta (β)</option>
+                    <option value="gamma">Gamma (γ)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="shieldMaterial">Shielding Material:</label>
+                <select id="shieldMaterial">
+                    <option value="paper">Paper</option>
+                    <option value="aluminum">Aluminum</option>
+                    <option value="lead">Lead</option>
+                    <option value="concrete">Concrete</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="shieldThickness">Shield Thickness: <span id="thicknessValue">5</span> mm</label>
+                <input type="range" id="shieldThickness" min="1" max="50" value="5">
+            </div>
+            <div class="control-group button-group">
+                <button id="startBtn">Start / Pause</button>
+                <button id="resetBtn">Reset</button>
+            </div>
+            <div class="info-box">
+                <h3 id="infoTitle">Select Options</h3>
+                <p id="infoText">Choose a radiation type, shielding material, and thickness, then press 'Start' to begin the simulation.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>An interactive simulation for O-Level Physics.</p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // DOM Elements
+        const radiationTypeSelect = document.getElementById('radiationType');
+        const shieldMaterialSelect = document.getElementById('shieldMaterial');
+        const shieldThicknessSlider = document.getElementById('shieldThickness');
+        const thicknessValueSpan = document.getElementById('thicknessValue');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statsDisplay = document.getElementById('stats');
+        const infoTitle = document.getElementById('infoTitle');
+        const infoText = document.getElementById('infoText');
+
+        // Simulation Parameters
+        const PARTICLE_PROPERTIES = {
+            alpha: { color: '#e94560', radius: 5, speed: 2, name: 'Alpha (α)' },
+            beta: { color: '#53d8fb', radius: 3, speed: 4, name: 'Beta (β)' },
+            gamma: { color: '#f9c54a', radius: 2, speed: 6, name: 'Gamma (γ)' }
+        };
+
+        const SHIELD_PROPERTIES = {
+            paper: { color: '#dcdcdc', name: 'Paper' },
+            aluminum: { color: '#a9a9a9', name: 'Aluminum' },
+            lead: { color: '#4c4c4c', name: 'Lead' },
+            concrete: { color: '#8b8b8b', name: 'Concrete' }
+        };
+
+        // Simplified absorption coefficients (higher means more effective)
+        const ABSORPTION_COEFFICIENTS = {
+            alpha: { paper: 1.0, aluminum: 1.0, lead: 1.0, concrete: 1.0 },
+            beta: { paper: 0.05, aluminum: 0.5, lead: 1.0, concrete: 0.4 },
+            gamma: { paper: 0.001, aluminum: 0.05, lead: 0.5, concrete: 0.1 }
+        };
+
+        const INFO_MESSAGES = {
+            alpha: {
+                paper: "Alpha particles are large and heavy. They are easily stopped by a thin sheet of paper.",
+                aluminum: "Aluminum is more than sufficient to stop all alpha particles.",
+                lead: "Lead is very dense and easily stops all alpha particles.",
+                concrete: "Concrete easily stops all alpha particles."
+            },
+            beta: {
+                paper: "Beta particles (electrons) are smaller and faster than alpha particles. Most can pass through paper, but some are stopped.",
+                aluminum: "A few millimeters of aluminum is effective at stopping most beta particles.",
+                lead: "Lead is very effective at stopping beta particles.",
+                concrete: "Concrete is quite effective at stopping beta particles."
+            },
+            gamma: {
+                paper: "Gamma rays are high-energy photons with no mass or charge. They pass through paper with almost no interaction.",
+                aluminum: "Aluminum is not very effective at stopping gamma rays; most will pass through.",
+                lead: "Lead is a dense material and is one of the best common materials for shielding against gamma rays, but very thick layers are needed for complete absorption.",
+                concrete: "Thick concrete is used for gamma shielding in nuclear reactors, but it is less effective than lead for the same thickness."
+            }
+        };
+
+        // Simulation State
+        let particles = [];
+        let isRunning = false;
+        let emittedCount = 0;
+        let detectedCount = 0;
+        let shieldX, shieldWidth;
+
+        function updateInfoPanel() {
+            const radiationType = radiationTypeSelect.value;
+            const shieldMaterial = shieldMaterialSelect.value;
+            infoTitle.textContent = `${PARTICLE_PROPERTIES[radiationType].name} vs. ${SHIELD_PROPERTIES[shieldMaterial].name}`;
+            infoText.textContent = INFO_MESSAGES[radiationType][shieldMaterial];
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            startBtn.textContent = 'Start';
+            particles = [];
+            emittedCount = 0;
+            detectedCount = 0;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawInitialState();
+            updateStats();
+            updateInfoPanel();
+        }
+
+        function toggleSimulation() {
+            isRunning = !isRunning;
+            startBtn.textContent = isRunning ? 'Pause' : 'Resume';
+            if (isRunning) {
+                animate();
+            }
+        }
+
+        function createParticle() {
+            const radiationType = radiationTypeSelect.value;
+            emittedCount++;
+            particles.push({
+                x: 50,
+                y: Math.random() * canvas.height,
+                ...PARTICLE_PROPERTIES[radiationType],
+                active: true
+            });
+        }
+
+        function drawInitialState() {
+            // Draw Source
+            ctx.fillStyle = '#fff';
+            ctx.font = '20px Arial';
+            ctx.fillText('Source', 20, canvas.height / 2 - 20);
+            ctx.fillRect(40, 0, 10, canvas.height);
+
+            // Draw Detector
+            ctx.fillStyle = '#fff';
+            ctx.fillText('Detector', canvas.width - 100, canvas.height / 2 - 20);
+            ctx.fillRect(canvas.width - 50, 0, 10, canvas.height);
+
+            // Draw Shield
+            const thickness = parseInt(shieldThicknessSlider.value);
+            const material = shieldMaterialSelect.value;
+            shieldWidth = thickness * 2; // Visual scaling
+            shieldX = canvas.width / 2 - shieldWidth / 2;
+            
+            ctx.fillStyle = SHIELD_PROPERTIES[material].color;
+            ctx.fillRect(shieldX, 0, shieldWidth, canvas.height);
+            ctx.strokeStyle = 'white';
+            ctx.strokeRect(shieldX, 0, shieldWidth, canvas.height);
+        }
+
+        function updateStats() {
+            const blockedPercentage = emittedCount > 0 ? ((emittedCount - detectedCount) / emittedCount) * 100 : 0;
+            statsDisplay.textContent = `Particles Emitted: ${emittedCount} | Particles Detected: ${detectedCount} | Blocked: ${blockedPercentage.toFixed(2)}%`;
+        }
+
+        let lastParticleTime = 0;
+        function animate(timestamp) {
+            if (!isRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawInitialState();
+
+            // Create new particles periodically
+            if (timestamp - lastParticleTime > 100) {
+                for(let i = 0; i < 3; i++) createParticle();
+                lastParticleTime = timestamp;
+            }
+
+            // Update and draw particles
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                if (!p.active) continue;
+
+                p.x += p.speed;
+
+                // Check for shield collision
+                if (p.x >= shieldX && p.x < shieldX + shieldWidth) {
+                    const radiationType = radiationTypeSelect.value;
+                    const shieldMaterial = shieldMaterialSelect.value;
+                    const thickness = parseInt(shieldThicknessSlider.value);
+                    const absorptionCoeff = ABSORPTION_COEFFICIENTS[radiationType][shieldMaterial];
+                    
+                    // Probabilistic absorption model
+                    const stopChance = 1 - Math.exp(-absorptionCoeff * thickness * 0.05);
+                    if (Math.random() < stopChance) {
+                        p.active = false;
+                    }
+                }
+
+                // Check for detection
+                if (p.x >= canvas.width - 50) {
+                    p.active = false;
+                    detectedCount++;
+                }
+
+                // Remove if off-screen
+                if (p.x > canvas.width) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                // Draw particle
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.active ? p.color : 'rgba(128, 128, 128, 0.5)';
+                ctx.fill();
+            }
+
+            updateStats();
+            requestAnimationFrame(animate);
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', toggleSimulation);
+        resetBtn.addEventListener('click', resetSimulation);
+        
+        radiationTypeSelect.addEventListener('change', resetSimulation);
+        shieldMaterialSelect.addEventListener('change', resetSimulation);
+        shieldThicknessSlider.addEventListener('input', (e) => {
+            thicknessValueSpan.textContent = e.target.value;
+            resetSimulation();
+        });
+
+        // Initial Setup
+        window.onload = resetSimulation;
+
+    </script>
+</body>
+</html>
