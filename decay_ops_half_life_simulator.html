@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decay Ops: Isotope Intel - Half-Life Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            width: 95%;
+            max-width: 1200px;
+            margin: auto;
+        }
+        h1 {
+            text-align: center;
+            color: #1a237e;
+            margin-top: 0;
+        }
+        p {
+            text-align: center;
+            color: #555;
+            margin-bottom: 25px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            align-items: flex-end;
+            padding: 20px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        input[type="number"] {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 150px;
+        }
+        .buttons {
+            display: flex;
+            gap: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background-color 0.2s;
+        }
+        #startBtn { background-color: #28a745; color: white; }
+        #startBtn:hover { background-color: #218838; }
+        #pauseBtn { background-color: #ffc107; color: #212529; }
+        #pauseBtn:hover { background-color: #e0a800; }
+        #resetBtn { background-color: #dc3545; color: white; }
+        #resetBtn:hover { background-color: #c82333; }
+        button:disabled {
+            background-color: #e9ecef;
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        .stats {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        .simulation-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        .canvas-wrapper {
+            flex: 1;
+            min-width: 400px;
+            max-width: 600px;
+        }
+        h2 {
+            text-align: center;
+            font-size: 1.2em;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        canvas {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            height: auto;
+        }
+        .info-panel {
+            margin-top: 30px;
+            padding: 20px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .info-panel h3 {
+            margin-top: 0;
+            color: #1a237e;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+        .info-panel p {
+            text-align: left;
+            line-height: 1.6;
+            color: #495057;
+        }
+        .info-panel strong {
+            color: #343a40;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Decay Ops: Half-Life Simulator</h1>
+    <p>Visualize the random nature of radioactive decay and see how it follows the theoretical half-life curve.</p>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="initialNucleiInput">Initial Nuclei:</label>
+            <input type="number" id="initialNucleiInput" value="1000" min="10" max="5000">
+        </div>
+        <div class="control-group">
+            <label for="halfLifeInput">Half-Life (seconds):</label>
+            <input type="number" id="halfLifeInput" value="5" min="1">
+        </div>
+        <div class="control-group">
+            <label for="durationInput">Simulation Duration (seconds):</label>
+            <input type="number" id="durationInput" value="30" min="1">
+        </div>
+        <div class="buttons">
+            <button id="startBtn">Start</button>
+            <button id="pauseBtn" disabled>Pause</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+    </div>
+
+    <div class="stats">
+        <span id="statsTime">Time: 0.00s</span> | 
+        <span id="statsRemaining">Remaining Nuclei: 1000</span>
+    </div>
+
+    <div class="simulation-area">
+        <div class="canvas-wrapper">
+            <h2>Nuclei Visualization</h2>
+            <canvas id="particleCanvas" width="500" height="500"></canvas>
+        </div>
+        <div class="canvas-wrapper">
+            <h2>Decay Graph</h2>
+            <canvas id="decayGraphCanvas" width="500" height="500"></canvas>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <h3>The Physics of Radioactive Decay</h3>
+        <p>
+            Radioactive decay is the process by which an unstable atomic nucleus loses energy by radiation. This is a <strong>stochastic (random)</strong> process at the level of single atoms, meaning it's impossible to predict exactly when one particular atom will decay.
+        </p>
+        <p>
+            However, for a large collection of atoms, the rate of decay is predictable and follows a clear pattern. This is described by the concept of <strong>half-life (T<sub>½</sub>)</strong>, which is the time required for half of the radioactive nuclei in a sample to decay.
+        </p>
+        <p>
+            The number of remaining nuclei, N(t), after a time (t) can be calculated using the formula:
+            <br>
+            <strong>N(t) = N₀ * (0.5)<sup>(t / T<sub>½</sub>)</sup></strong>
+            <br>
+            where N₀ is the initial number of nuclei.
+        </p>
+        <p>
+            This is equivalent to the exponential decay formula:
+            <br>
+            <strong>N(t) = N₀ * e<sup>-λt</sup></strong>
+            <br>
+            where <strong>λ (lambda)</strong> is the decay constant. The decay constant is related to the half-life by: <strong>λ = ln(2) / T<sub>½</sub></strong>. The "Theoretical Decay" curve on the graph is plotted using this formula.
+        </p>
+        <p>
+            This simulation models the random decay of each individual nucleus. The "Simulated Decay" line shows the actual count of remaining nuclei, which fluctuates around the smooth theoretical curve, demonstrating the statistical nature of the process.
+        </p>
+    </div>
+</div>
+
+<script>
+    window.onload = function() {
+        // DOM Elements
+        const initialNucleiInput = document.getElementById('initialNucleiInput');
+        const halfLifeInput = document.getElementById('halfLifeInput');
+        const durationInput = document.getElementById('durationInput');
+        const startBtn = document.getElementById('startBtn');
+        const pauseBtn = document.getElementById('pauseBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const statsTime = document.getElementById('statsTime');
+        const statsRemaining = document.getElementById('statsRemaining');
+        const particleCanvas = document.getElementById('particleCanvas');
+        const particleCtx = particleCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('decayGraphCanvas');
+
+        // Simulation State
+        let chart;
+        let radioactiveParticles = [];
+        let stableParticles = [];
+        let isRunning = false;
+        let simulationId;
+        let currentTime = 0;
+        let lastTime = 0;
+
+        // Simulation Parameters
+        let initialNuclei, halfLife, duration, decayConstant;
+
+        function setupChart() {
+            if (chart) {
+                chart.destroy();
+            }
+            const theoreticalData = [];
+            for (let t = 0; t <= duration; t += duration / 100) {
+                theoreticalData.push({
+                    x: t,
+                    y: initialNuclei * Math.pow(0.5, t / halfLife)
+                });
+            }
+
+            const ctx = graphCanvas.getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [{
+                        label: 'Simulated Decay',
+                        data: [],
+                        borderColor: 'rgba(220, 53, 69, 1)',
+                        backgroundColor: 'rgba(220, 53, 69, 0.5)',
+                        stepped: true,
+                        pointRadius: 0,
+                    }, {
+                        label: 'Theoretical Decay',
+                        data: theoreticalData,
+                        borderColor: 'rgba(0, 123, 255, 1)',
+                        backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                        pointRadius: 0,
+                        borderDash: [5, 5],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: { display: true, text: 'Time (s)' },
+                            max: duration,
+                            min: 0
+                        },
+                        y: {
+                            title: { display: true, text: 'Number of Radioactive Nuclei' },
+                            max: initialNuclei,
+                            min: 0
+                        }
+                    }
+                }
+            });
+        }
+
+        function drawParticles() {
+            particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+            
+            // Draw stable particles (gray)
+            particleCtx.fillStyle = '#adb5bd';
+            stableParticles.forEach(p => {
+                particleCtx.beginPath();
+                particleCtx.arc(p.x, p.y, 2, 0, 2 * Math.PI);
+                particleCtx.fill();
+            });
+
+            // Draw radioactive particles (blue)
+            particleCtx.fillStyle = '#007bff';
+            radioactiveParticles.forEach(p => {
+                particleCtx.beginPath();
+                particleCtx.arc(p.x, p.y, 2, 0, 2 * Math.PI);
+                particleCtx.fill();
+            });
+        }
+
+        function resetSimulation() {
+            pauseSimulation();
+            initialNuclei = parseInt(initialNucleiInput.value);
+            halfLife = parseFloat(halfLifeInput.value);
+            duration = parseFloat(durationInput.value);
+            decayConstant = Math.log(2) / halfLife;
+            currentTime = 0;
+            lastTime = 0;
+
+            radioactiveParticles = [];
+            stableParticles = [];
+            for (let i = 0; i < initialNuclei; i++) {
+                radioactiveParticles.push({
+                    x: Math.random() * particleCanvas.width,
+                    y: Math.random() * particleCanvas.height
+                });
+            }
+
+            setupChart();
+            drawParticles();
+            updateStats();
+            chart.data.datasets[0].data = [{x: 0, y: initialNuclei}];
+            chart.update();
+        }
+
+        function updateStats() {
+            statsTime.textContent = `Time: ${currentTime.toFixed(2)}s`;
+            statsRemaining.textContent = `Remaining Nuclei: ${radioactiveParticles.length}`;
+        }
+
+        function animate(timestamp) {
+            if (!isRunning) return;
+
+            const deltaTime = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+            currentTime += deltaTime;
+
+            if (currentTime > duration) {
+                pauseSimulation();
+                currentTime = duration;
+            } else {
+                const decayProbability = 1 - Math.exp(-decayConstant * deltaTime);
+                let decayedThisFrame = 0;
+                radioactiveParticles = radioactiveParticles.filter(p => {
+                    if (Math.random() < decayProbability) {
+                        stableParticles.push(p);
+                        decayedThisFrame++;
+                        return false;
+                    }
+                    return true;
+                });
+
+                if (decayedThisFrame > 0) {
+                    chart.data.datasets[0].data.push({ x: currentTime, y: radioactiveParticles.length });
+                    chart.update('none');
+                }
+            }
+
+            drawParticles();
+            updateStats();
+            simulationId = requestAnimationFrame(animate);
+        }
+
+        function startSimulation() {
+            if (isRunning) return;
+            isRunning = true;
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            [initialNucleiInput, halfLifeInput, durationInput].forEach(i => i.disabled = true);
+            lastTime = performance.now();
+            simulationId = requestAnimationFrame(animate);
+        }
+
+        function pauseSimulation() {
+            isRunning = false;
+            cancelAnimationFrame(simulationId);
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+            [initialNucleiInput, halfLifeInput, durationInput].forEach(i => i.disabled = false);
+        }
+
+        // Event Listeners
+        startBtn.addEventListener('click', startSimulation);
+        pauseBtn.addEventListener('click', pauseSimulation);
+        resetBtn.addEventListener('click', resetSimulation);
+
+        // Initial Setup
+        resetSimulation();
+    };
+</script>
+</body>
+</html>
