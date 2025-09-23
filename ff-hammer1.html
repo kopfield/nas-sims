@@ -85,23 +85,37 @@
     <h1 class="text-2xl md:text-3xl font-bold mb-4 text-gray-800">Hammer vs. Feather Drop</h1>
 
     <div class="w-full max-w-4xl bg-white p-4 md:p-6 rounded-lg shadow-md">
+        <!-- Controls -->
         <div class="mb-4 flex flex-wrap justify-center items-center gap-3 md:gap-4">
             <button id="startButton" class="control-button start-button">Start</button>
             <button id="pauseButton" class="control-button pause-button" disabled>Pause</button>
             <button id="resetButton" class="control-button reset-button">Reset</button>
+            <div class="flex items-center gap-2">
+                <label for="planetSelect" class="text-gray-700 font-medium">Planet:</label>
+                <select id="planetSelect" class="p-2 rounded-md border border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50 bg-white">
+                    <option value="9.81" selected>Earth</option>
+                    <option value="1.62">Moon</option>
+                    <option value="3.72">Mars</option>
+                    <option value="24.79">Jupiter</option>
+                    <option value="0">No Gravity</option>
+                </select>
+            </div>
             <label class="checkbox-label text-gray-700 font-medium ml-4">
                 <input type="checkbox" id="airResistanceCheckbox" class="checkbox-input accent-blue-500">
                 Enable Air Resistance
             </label>
         </div>
 
+        <!-- Simulation and Graph Area -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            <!-- Animation Canvas -->
             <div class="border border-gray-300 rounded-lg p-2">
                 <h2 class="text-lg font-semibold text-center mb-2 text-gray-700">Animation</h2>
                 <canvas id="animationCanvas" class="w-full aspect-square"></canvas>
                 <div id="ground" class="h-2 bg-green-600 rounded-b-lg"></div>
             </div>
 
+            <!-- Graph Canvas -->
             <div class="border border-gray-300 rounded-lg p-2">
                 <h2 class="text-lg font-semibold text-center mb-2 text-gray-700">Velocity-Time Graph</h2>
                 <canvas id="graphCanvas" class="w-full aspect-square"></canvas>
@@ -115,7 +129,8 @@
                 </div>
             </div>
         </div>
-         <div id="messageBox" class="mt-4 p-3 text-center text-blue-800 bg-blue-100 border border-blue-300 rounded-md" style="display: none;"></div>
+         <!-- Message Box -->
+        <div id="messageBox" class="mt-4 p-3 text-center text-blue-800 bg-blue-100 border border-blue-300 rounded-md" style="display: none;"></div>
 
     </div>
 
@@ -130,6 +145,7 @@
         const resetButton = document.getElementById('resetButton');
         const airResistanceCheckbox = document.getElementById('airResistanceCheckbox');
         const messageBox = document.getElementById('messageBox');
+        const planetSelect = document.getElementById('planetSelect');
 
         // --- Simulation State ---
         let animationFrameId = null;
@@ -140,7 +156,7 @@
         let simulationTime = 0; // Total elapsed simulation time (excluding pauses)
 
         // --- Physics Constants and Parameters ---
-        const g = 9.81; // Acceleration due to gravity (m/s^2) - simulation units
+        let g = 9.81; // Acceleration due to gravity (m/s^2) - simulation units
         const pixelsPerMeter = 50; // Scale factor for animation
         const timeScale = 0.5; // Slow down simulation time for visibility
         const rho = 1.225; // Air density (kg/m^3) - simplified
@@ -191,13 +207,9 @@
             graphCanvas.width = graphContainerWidth;
             graphCanvas.height = graphContainerWidth;
 
-            // Redraw immediately after resize
-            if (!isRunning && !isPaused) {
-                 resetSimulation(); // Reset draws initial state
-            } else {
-                 drawAnimation(); // Redraw current state
-                 drawGraph();
-            }
+            // Redraw immediately after resize, reflecting the current state. This avoids the recursive loop.
+            drawAnimation();
+            drawGraph();
         }
 
         // --- Drawing Functions ---
@@ -470,10 +482,12 @@
 
 
         function updateButtonStates() {
-            startButton.disabled = isRunning || isPaused; // Disabled if running or paused (use Resume logic via start)
+            // A running simulation disables the start/resume button.
+            startButton.disabled = isRunning;
             startButton.textContent = isPaused ? 'Resume' : 'Start';
-            pauseButton.disabled = !isRunning || isPaused;
-            resetButton.disabled = false; // Reset is always enabled unless running initial frames? No, keep enabled.
+            // The pause button is only active when the simulation is running.
+            pauseButton.disabled = !isRunning;
+            resetButton.disabled = false; // Always allow resetting.
         }
 
         function showMessage(msg) {
@@ -487,6 +501,14 @@
         startButton.addEventListener('click', startSimulation);
         pauseButton.addEventListener('click', pauseSimulation);
         resetButton.addEventListener('click', resetSimulation);
+        
+        planetSelect.addEventListener('change', (e) => {
+            g = parseFloat(e.target.value);
+            const selectedOption = e.target.options[e.target.selectedIndex];
+            showMessage(`Gravity set for ${selectedOption.text}.`);
+            resetSimulation(); // Reset simulation when planet changes
+        });
+
         airResistanceCheckbox.addEventListener('change', (e) => {
             airResistanceEnabled = e.target.checked;
              // Optional: Reset if setting changes mid-run? Or just apply going forward?
@@ -508,3 +530,6 @@
 
 </body>
 </html>
+
+
+
