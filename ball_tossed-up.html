@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinematics: Ball Toss Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.1/plotly.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f7f9;
+            --panel-bg: #ffffff;
+            --border-color: #e2e8f0;
+            --text-color: #334155;
+            --text-light: #64748b;
+            --primary-color: #3b82f6;
+            --primary-hover: #2563eb;
+            --danger-color: #ef4444;
+            --success-color: #22c55e;
+        }
+        body {
+            margin: 0;
+            padding: 1.5rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #1e293b;
+            margin-bottom: 2rem;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            width: 100%;
+            max-width: 1200px;
+            justify-content: center;
+        }
+        .simulation-content {
+            flex: 1;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+            width: 100%;
+            min-width: 320px;
+        }
+        .canvas-panel {
+            flex: 0 0 330px; /* Fixed width for the canvas panel */
+        }
+        .graph-panel {
+            flex: 1 1 450px; /* Flexible width for the graph */
+        }
+        .right-column {
+            flex: 1 1 450px;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -2px rgba(0,0,0,0.05);
+        }
+        canvas {
+            width: 100%;
+            height: auto;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+        #plotDiv {
+            width: 100%;
+            min-height: 350px;
+        }
+        .controls-panel {
+            /* width: 100%; */
+        }
+        .controls-wrapper {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1.5rem;
+        }
+        .controls-panel h2 {
+            margin-top: 0;
+            font-size: 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        button {
+            cursor: pointer;
+            padding: 0.6rem 1rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+        .setting-control {
+            display: flex;
+            flex-direction: column;
+            margin-bottom: 1.25rem;
+        }
+        .setting-control label {
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--text-light);
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 5px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: var(--primary-color);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: var(--primary-color);
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        select {
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--panel-bg);
+        }
+    </style>
+</head>
+<body>
+    <h1>Kinematics: Bouncing Ball Simulation</h1>
+    <div class="container">
+        <div class="simulation-content">
+            <div class="panel canvas-panel">
+                <canvas id="ballCanvas" width="300" height="350"></canvas>
+            </div>
+            <div class="right-column">
+                <div class="panel graph-panel">
+                    <div id="plotDiv"></div>
+                </div>
+                <div class="controls-panel panel">
+                    <h2>Controls</h2>
+                    <div class="controls-wrapper">
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <button id="startButton">Start</button>
+                            <button id="pauseButton" disabled>Pause</button>
+                            <button id="stopButton" disabled>Reset</button>
+                        </div>
+                        <div class="setting-control">
+                            <label>Simulation Speed: <span id="speedValue">1.0</span>x</label>
+                            <input type="range" id="speedControl" min="10" max="200" value="100">
+                        </div>
+                        <div class="setting-control">
+                            <label>Initial Velocity (m/s): <span id="v0Value">15.0</span></label>
+                            <input type="range" id="v0Control" min="-20" max="20" value="15" step="0.5">
+                        </div>
+                        <div class="setting-control">
+                            <label>Initial Height (m): <span id="h0Value">0.0</span></label>
+                            <input type="range" id="h0Control" min="0" max="2" value="0" step="0.1">
+                        </div>
+                        <div class="setting-control">
+                            <label>Gravity (m/s²): <span id="gValue">9.8</span></label>
+                            <input type="range" id="gControl" min="1" max="25" value="9.8" step="0.1">
+                        </div>
+                        <div class="setting-control">
+                            <label>Energy Loss on Bounce: <span id="energyLossValue">36</span>%</label>
+                            <input type="range" id="energyLossControl" min="0" max="100" value="36" step="1">
+                        </div>
+                        <div class="setting-control">
+                            <label for="plotType">Graph Type</label>
+                            <select id="plotType">
+                                <option value="velocity">Velocity vs. Time</option>
+                                <option value="displacement">Height vs. Time</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            const canvas = document.getElementById('ballCanvas');
+            const ctx = canvas.getContext('2d');
+            const startButton = document.getElementById('startButton');
+            const pauseButton = document.getElementById('pauseButton');
+            const resetButton = document.getElementById('stopButton');
+            const plotTypeSelect = document.getElementById('plotType');
+            const speedControl = document.getElementById('speedControl');
+            const speedValueSpan = document.getElementById('speedValue');
+
+            // New UI elements
+            const v0Control = document.getElementById('v0Control');
+            const v0ValueSpan = document.getElementById('v0Value');
+            const h0Control = document.getElementById('h0Control');
+            const h0ValueSpan = document.getElementById('h0Value');
+            const gControl = document.getElementById('gControl');
+            const gValueSpan = document.getElementById('gValue');
+            const energyLossControl = document.getElementById('energyLossControl');
+            const energyLossValueSpan = document.getElementById('energyLossValue');
+
+            let animationId;
+            let isPlaying = false;
+            let speedFactor = 1.0;
+            let lastFrameTime = 0;
+
+            // Simulation state
+            let time = 0;
+            let position = 0;
+            let velocity = 0;
+
+            // Graph data
+            let timePoints = [];
+            let velocityPoints = [];
+            let positionPoints = [];
+
+            // Physics and drawing constants
+            let g = parseFloat(gControl.value);
+            let energyLoss = parseFloat(energyLossControl.value) / 100.0;
+            const scale = 25; // pixels per meter
+            const groundY = canvas.height - 50; // Ground position
+            const ballRadius = 10;
+
+            function resetSimulation() {
+                time = 0;
+                position = parseFloat(h0Control.value);
+                velocity = parseFloat(v0Control.value);
+                initPlot();
+                draw();
+            }
+
+            function draw() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+                // Draw grid
+                ctx.beginPath();
+                for(let x = 0; x <= canvas.width; x += 50) {
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, canvas.height);
+                }
+                for(let y = 0; y <= canvas.height; y += 50) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                }
+                ctx.strokeStyle = '#e0e0e0';
+                ctx.stroke();
+                
+                // Draw ground with shadow
+                ctx.beginPath();
+                ctx.moveTo(0, groundY);
+                ctx.lineTo(canvas.width, groundY);
+                ctx.lineWidth = 2;
+                ctx.strokeStyle = '#475569';
+                ctx.stroke();
+                ctx.lineWidth = 1;
+
+                // Add ground label
+                ctx.font = 'bold 12px Arial';
+                ctx.fillStyle = '#333';
+                ctx.textAlign = 'left';
+                ctx.fillText('Ground', 10, groundY - 5);
+
+                // Calculate ball position
+                const screenY = groundY - scale * position;
+
+                // Draw height indicator
+                ctx.beginPath();
+                ctx.moveTo(canvas.width/2 + ballRadius + 15, screenY);
+                ctx.lineTo(canvas.width - 40, screenY);
+                ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
+                ctx.setLineDash([5, 5]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw bounce effect if ball is on the ground
+                if (position <= 0.02 && Math.abs(velocity) > 0.2) {
+                    // Draw bounce circle
+                    ctx.beginPath();
+                    ctx.arc(canvas.width/2, groundY, 20, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'orange';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                }
+
+                // Draw ball with 3D effect
+                const gradient = ctx.createRadialGradient(canvas.width/2 - 3, screenY - 3, 1, canvas.width/2, screenY, ballRadius);
+                gradient.addColorStop(0, '#ff7b7b');
+                gradient.addColorStop(1, '#d92121');
+                ctx.beginPath();
+                ctx.arc(canvas.width/2, screenY, ballRadius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.strokeStyle = '#a51818';
+                ctx.stroke();
+
+                // Display measurements
+                ctx.font = '12px Arial';
+                ctx.fillStyle = 'black';
+                ctx.textAlign = 'right';
+                ctx.fillText(`${position.toFixed(2)} m`, canvas.width - 45, screenY + 4);
+
+                // Display time and velocity
+                ctx.textAlign = 'left';
+                ctx.fillText(`Time: ${time.toFixed(2)}s`, 10, 20);
+                ctx.fillText(`Velocity: ${velocity.toFixed(2)}m/s`, 10, 40);
+
+                // Draw direction arrow
+                const arrowLength = 20;
+                const direction = velocity > 0 ? -1 : 1; // Up is negative in screen coordinates
+                if (Math.abs(velocity) > 0.1) { // Only draw arrow if moving
+                    ctx.beginPath();
+                    ctx.moveTo(canvas.width/2, screenY);
+                    ctx.lineTo(canvas.width/2, screenY + direction * arrowLength);
+                    ctx.moveTo(canvas.width/2 - 5, screenY + direction * arrowLength * 0.7);
+                    ctx.lineTo(canvas.width/2, screenY + direction * arrowLength);
+                    ctx.lineTo(canvas.width/2 + 5, screenY + direction * arrowLength * 0.7);
+                    ctx.strokeStyle = velocity > 0 ? 'var(--success-color)' : 'var(--primary-color)';
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+                    ctx.lineWidth = 1;
+                }
+            }
+
+            function initPlot() {
+                const data = [{
+                    x: [],
+                    y: [],
+                    mode: 'lines',
+                    line: {color: 'var(--primary-color)'}
+                }];
+
+                const layout = {
+                    title: plotTypeSelect.options[plotTypeSelect.selectedIndex].text,
+                    xaxis: {
+                        title: 'Time (s)',
+                        autorange: true
+                    },
+                    yaxis: {
+                        title: plotTypeSelect.value === 'velocity' ? 'Velocity (m/s)' : 'Height (m)',
+                        autorange: true
+                    },
+                    margin: {t: 40, l: 50, r: 20, b: 40},
+                    height: 350
+                };
+
+                Plotly.newPlot('plotDiv', data, layout);
+                timePoints = [];
+                velocityPoints = [];
+                positionPoints = [];
+            }
+
+            function updatePlot() {
+                timePoints.push(time);
+                velocityPoints.push(velocity);
+                positionPoints.push(position);
+
+                const update = {
+                    x: [timePoints],
+                    y: [plotTypeSelect.value === 'velocity' ? velocityPoints : positionPoints]
+                };
+
+                Plotly.update('plotDiv', update);
+            }
+
+            function updatePhysics(dt) {
+                // Update velocity due to gravity
+                velocity -= g * dt;
+
+                // Update position
+                position += velocity * dt;
+
+                // Check for bounce
+                if (position < 0 && velocity < 0) {
+                    const restitution = Math.sqrt(1 - energyLoss);
+                    position = 0; // Place ball on the ground
+                    velocity *= -restitution; // Reverse velocity and apply restitution
+
+                    // If velocity is very small after bounce, stop it to prevent jittering
+                    if (Math.abs(velocity) < 0.1) {
+                        velocity = 0;
+                    }
+                }
+
+                time += dt;
+            }
+
+            function animate(timestamp) {
+                if (!isPlaying) return;
+
+                const deltaTime = (timestamp - lastFrameTime) / 1000; // time in seconds
+                lastFrameTime = timestamp;
+                
+                const dt = deltaTime * speedFactor;
+
+                updatePhysics(dt);
+                draw();
+                updatePlot();
+
+                animationId = requestAnimationFrame(animate);
+            }
+
+            startButton.addEventListener('click', () => {
+                if (!isPlaying) { // To prevent issues if clicked multiple times
+                    lastFrameTime = performance.now();
+                }
+                isPlaying = true;
+                startButton.disabled = true;
+                pauseButton.disabled = false;
+                resetButton.disabled = false;
+                animationId = requestAnimationFrame(animate);
+            });
+
+            pauseButton.addEventListener('click', () => {
+                isPlaying = false;
+                startButton.disabled = false;
+                pauseButton.disabled = true;
+                resetButton.disabled = false;
+                cancelAnimationFrame(animationId);
+            });
+
+            resetButton.addEventListener('click', () => {
+                isPlaying = false;
+                startButton.disabled = false;
+                pauseButton.disabled = true;
+                resetButton.disabled = true;
+                cancelAnimationFrame(animationId);
+                resetSimulation();
+            });
+
+            speedControl.addEventListener('input', (e) => {
+                speedFactor = e.target.value / 100;
+                speedValueSpan.textContent = speedFactor.toFixed(1);
+            });
+
+            plotTypeSelect.addEventListener('change', () => {
+                // Redraw the plot with existing data but new type
+                const yData = plotTypeSelect.value === 'velocity' ? velocityPoints : positionPoints;
+                const title = plotTypeSelect.options[plotTypeSelect.selectedIndex].text;
+                const y_axis_title = plotTypeSelect.value === 'velocity' ? 'Velocity (m/s)' : 'Height (m)';
+                
+                Plotly.restyle('plotDiv', { y: [yData] });
+                Plotly.relayout('plotDiv', { 'title': title, 'yaxis.title': y_axis_title });
+            });
+
+            // --- Control Listeners ---
+            v0Control.addEventListener('input', (e) => {
+                v0ValueSpan.textContent = parseFloat(e.target.value).toFixed(1);
+                if (!isPlaying) resetSimulation();
+            });
+            h0Control.addEventListener('input', (e) => {
+                h0ValueSpan.textContent = parseFloat(e.target.value).toFixed(1);
+                if (!isPlaying) resetSimulation();
+            });
+            gControl.addEventListener('input', (e) => {
+                g = parseFloat(e.target.value);
+                gValueSpan.textContent = g.toFixed(1);
+                if (!isPlaying) resetSimulation();
+            });
+            energyLossControl.addEventListener('input', (e) => {
+                energyLoss = parseFloat(e.target.value) / 100.0;
+                energyLossValueSpan.textContent = parseFloat(e.target.value).toFixed(0);
+                if (!isPlaying) resetSimulation();
+            });
+
+            // Initial setup
+            resetSimulation();
+        };
+    </script>
+</body>
+</html>
